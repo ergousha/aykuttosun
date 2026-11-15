@@ -261,7 +261,6 @@ window.TD = {
   }
  ],
  "sozler": [
-  "Uygulama deneyimi sizin için önemliyse bu siteyi olduğu gibi Netlify veya Cloudflare Pages’te ücretsiz yayınlayın ve tefekkurdenizi.com alan adını oraya yönlendirin.",
   "Çeşmede değildir keramet, o çeşmenin kaynağındadır. Suyu ben içtim, başkası da içsin diyebilendir Müslüman.",
   "Sen hangi bağın bülbülüsün? Fenâ bağının mı, Bekâ bağının mı? İkisi de kafestir insana, kafesten kurtulan uçar Allah’a.",
   "İnsan katre olduğunu ummanı görünce anlar.",

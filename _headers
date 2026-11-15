@@ -1,0 +1,20 @@
+# Netlify ve Cloudflare Pages bu dosyayı otomatik okur.
+# Sayfa, kod ve veri dosyaları: tarayıcı her seferinde sunucuya "değişti mi?" diye sorsun.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/manifest.webmanifest
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: no-cache
+/logo/svg/*
+  Cache-Control: no-cache
+
+# Görseller nadiren değişir: 1 hafta önbellekte kalabilir
+/icons/*
+  Cache-Control: public, max-age=604800
+/logo/png/*
+  Cache-Control: public, max-age=604800

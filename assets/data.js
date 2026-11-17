@@ -258,7 +258,27 @@ window.TD = {
    "slug": "gonul-bir-kapiya-varinca",
    "title": "Gönül Bir Kapıya Varınca",
    "body": "Bir kapıya baş koyan, her âsitânı gözlemez,\nAşk ile ahd eyleyen, her gülistânı özlemez.\n\nHer çerağdan nür uman, kendi kandilin söndürür,\nŞem'-i aşka yâr olan, pervânesin gizlemez.\n\nHer gördüğün deryâ mıdır, her söylenen irfân mıdır?\nCevherin kadrin bilen, her bir dükkanı gözlemez.\n\nBir güle bülbül olan, her goncanın dalında mı?\nGönlünü cânâna veren, gayrı cânânı özlemez.\n\nSırrı ehlinin elinde, hikmeti meydân içinde,\nHer lisânda sır arayan, kendi noksânın sezemez.\n\nMürşide ikrâr edenin imtihânı sadâkattir,\nİkrârın yükün almayan, aşkın burhânın gösteremez.\n\nHer kapıda iz ararsan, kendi izin kaybedersin,\nMenzili Hak olan gönül, her kervâna yüklenmez.\n\nSanma kim bu yol kıskanır, başka bağın güllerini,\nHakikatte kök salan dal, her rüzgârda eğilmez.\n\nİlim ara, hikmet dinle, her kelâmda ibret eyle,\nLâkin gönlü dağılmışın, aynasında sır görünmez.\n\nEy gönül, ahdini yokla, kime verdin özünü sen?\nBir kapıya baş koyan cân, her kapıda baş eğmez.\n\nAykut TOSUN\n01.11.2026"
+  },
+  {
+   "slug": "edeb-ya-hu",
+   "title": "Edeb Yâ Hû",
+   "body": "Ey tâlibim, edeb sana yol olsun,\nİkrârın dilinde değil, hâl olsun,\nBir bakışın kırık kalbe bal olsun,\nBu yolun ilk nişânesi edebdir.\n\nBir kapıya ikrâr verdin, sâdık ol,\nAhde vefâ göster, gönlü açık ol,\nÖnce kendi kusuruna tanık ol,\nİkrârın kıymeti hâlde bellidir.\n\nHer sözü hikmet sanıp aldanma sen,\nHer yanan kandile koşup yanma sen,\nBir sır için her kapıda kalma sen,\nBil ki irfân sadâkatle dirilir.\n\nRehberine sevgi besle, hürmet et,\nBilmediğin yerde sorup sohbet et,\nBir cân incitmeden Hakk'a hizmet et,\nHürmetin kökü Hakk'a sadâkattir.\n\nŞöhret arayana sır da verilmez,\nBir gönül kıranın yolu açılmaz,\nHak için eğilen baş hiç küçülmez,\nEdeb gönül mülkünün sultânıdır.\n\nEy tâlibim, aşk yolunda sâdık ol,\nÖnce nefsin karşısında şâhit ol,\nHer gönüle rahmet taşı, âşık ol,\nEdeb ile yaşa, edeb ile öl.\n\nAykut TOSUN\n16.11.2026"
   }
+ ],
+ "etkinlikler": [
+  {"tarih": "2026-11-18", "saat": "22:00", "bitis": "", "slug": "irfan", "title": "İrfan Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2026-11-18", "saat": "22:00", "bitis": "23:00", "slug": "mesnevi", "title": "Mesnevî-i Şerîf Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2026-11-20", "saat": "22:00", "bitis": "23:30", "slug": "kelam-i-kadim", "title": "Kelâm-ı Kadîm Dersi", "yer": "Zoom"},
+  {"tarih": "2026-11-25", "saat": "22:00", "bitis": "", "slug": "irfan", "title": "İrfan Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2026-11-25", "saat": "22:00", "bitis": "23:00", "slug": "mesnevi", "title": "Mesnevî-i Şerîf Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2026-12-02", "saat": "22:00", "bitis": "23:00", "slug": "mesnevi", "title": "Mesnevî-i Şerîf Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2026-12-09", "saat": "22:00", "bitis": "", "slug": "irfan", "title": "İrfan Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2026-12-16", "saat": "22:00", "bitis": "23:00", "slug": "mesnevi", "title": "Mesnevî-i Şerîf Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2026-12-23", "saat": "22:00", "bitis": "", "slug": "irfan", "title": "İrfan Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2026-12-30", "saat": "22:00", "bitis": "23:00", "slug": "mesnevi", "title": "Mesnevî-i Şerîf Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2027-01-06", "saat": "22:00", "bitis": "", "slug": "irfan", "title": "İrfan Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2027-01-13", "saat": "22:00", "bitis": "23:00", "slug": "mesnevi", "title": "Mesnevî-i Şerîf Sohbetleri", "yer": "YouTube"},
+  {"tarih": "2027-01-27", "saat": "22:00", "bitis": "23:00", "slug": "mesnevi", "title": "Mesnevî-i Şerîf Sohbetleri", "yer": "YouTube"}
  ],
  "sozler": [
   "Çeşmede değildir keramet, o çeşmenin kaynağındadır. Suyu ben içtim, başkası da içsin diyebilendir Müslüman.",

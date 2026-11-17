@@ -202,9 +202,21 @@
   };
 
   P.etkinlikler = function () {
+    var today = new Date(); var iso = today.getFullYear() + "-" + ("0" + (today.getMonth() + 1)).slice(-2) + "-" + ("0" + today.getDate()).slice(-2);
+    var AY = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+    var GUN = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+    var list = (D.etkinlikler || []).filter(function (e) { return e.tarih >= iso; });
+    var rows = list.map(function (e) {
+      var d = new Date(e.tarih + "T12:00:00");
+      var saat = e.saat + (e.bitis ? "–" + e.bitis : "");
+      return '<a class="card" style="display:flex;gap:16px;align-items:center;margin-bottom:12px" href="/sohbet/' + e.slug + '/">' +
+        '<div style="text-align:center;min-width:56px"><b style="font-size:1.6em;display:block">' + d.getDate() + "</b><small>" + AY[d.getMonth()] + " " + d.getFullYear() + "</small></div>" +
+        "<div><h3 style=\"margin:0\">" + esc(e.title) + "</h3><small>" + GUN[d.getDay()] + " · " + saat + " · " + esc(e.yer) + "</small></div></a>";
+    }).join("");
+    var info = "<p>Sohbetlere katılmak için WhatsApp kanalımızdan bize ulaşarak grubumuza üye olabilir ve Zoom bağlantısına ulaşabilirsiniz. Duyurular sosyal medya hesaplarımızdan da paylaşılmaktadır.</p>";
     return pageHead("Etkinlikler", "Seminerler, sohbet meclisleri ve eğitim programları.", '<a href="/">Ana Sayfa</a> / Etkinlikler') +
-      '<section class="section"><div class="wrap narrow"><div class="card center"><div class="card-ico" style="margin:0 auto 12px">' + I.cal + '</div><h3>Yaklaşan etkinlikler</h3>' +
-      "<p>Güncel etkinlik duyuruları sosyal medya hesaplarımızdan paylaşılmaktadır. Bilgi ve kayıt için bize ulaşabilirsiniz.</p>" +
+      '<section class="section"><div class="wrap narrow">' + (rows ? "<h3>Yaklaşan etkinlikler</h3>" + rows : '<div class="card center"><h3>Yaklaşan etkinlikler</h3><p>Şu an planlanmış etkinlik yok.</p></div>') +
+      '<div class="card center" style="margin-top:16px"><div class="card-ico" style="margin:0 auto 12px">' + I.cal + "</div>" + info +
       '<div class="listen" style="justify-content:center"><a class="btn btn-gold" target="_blank" rel="noopener" href="' + D.iletisim.okul.instagram + '">' + I.ig + 'Instagram</a><a class="btn" target="_blank" rel="noopener" href="' + D.iletisim.whatsapp + '">' + I.wa + "WhatsApp</a></div></div></div></section>";
   };
 

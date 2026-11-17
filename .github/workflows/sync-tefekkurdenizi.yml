@@ -1,0 +1,65 @@
+name: Sync tefekkurdenizi.com
+
+# Her gün tefekkurdenizi.com'u kontrol eder; yeni içerik varsa tek bir PR açar/günceller.
+on:
+  schedule:
+    - cron: "17 5 * * *" # her gün 05:17 UTC (08:17 TSİ)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-tefekkurdenizi
+  cancel-in-progress: false
+
+env:
+  BRANCH: auto/tefekkurdenizi-sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Kaynak siteyi karşılaştır ve data.js'i güncelle
+        id: sync
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || vars.GEMINI_MODEL }}
+          REPORT_FILE: ${{ runner.temp }}/sync-report.md
+        run: node tools/sync-tefekkur.js | tee "$RUNNER_TEMP/sync.log"; grep -q '^CHANGED=true' "$RUNNER_TEMP/sync.log" && echo "changed=true" >> "$GITHUB_OUTPUT" || echo "changed=false" >> "$GITHUB_OUTPUT"
+
+      - name: Sayfaları yeniden üret
+        if: steps.sync.outputs.changed == 'true'
+        run: node tools/build.js
+
+      - name: Dal oluştur, push et ve PR aç/güncelle
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ runner.temp }}/sync-report.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add -A
+          git commit -m "Sync new content from tefekkurdenizi.com"
+          git push --force origin "$BRANCH"
+          BODY="$(cat "$REPORT")
+
+          ---
+          _Otomatik oluşturuldu (\`.github/workflows/sync-tefekkurdenizi.yml\`). Birleştirmeden önce metinleri kaynakla karşılaştırın._"
+          if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --title "Tefekkür Denizi eşitlemesi: yeni içerik" --body "$BODY"
+          else
+            gh pr create --base main --head "$BRANCH" --title "Tefekkür Denizi eşitlemesi: yeni içerik" --body "$BODY"
+          fi

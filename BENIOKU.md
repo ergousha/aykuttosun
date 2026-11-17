@@ -33,6 +33,20 @@ Her içeriğin kendi gerçek adresi vardır (ör. `/makale/kalplerin-anahtari-su
 
 > Sayfaları yeniden üretmeden yalnızca `data.js`'i yüklerseniz site tarayıcıda yine güncel görünür, ancak Google'ın gördüğü HTML ve site haritası eski kalır.
 
+## Otomatik eşitleme (tefekkurdenizi.com → bu site)
+`.github/workflows/sync-tefekkurdenizi.yml` her gün 05:17 UTC'de (ve "Run workflow" ile elle) `tools/sync-tefekkur.js` çalıştırır. Yeni makale/deneme/şiir/söz ve yaklaşan etkinlikleri bulursa `assets/data.js` dosyasını günceller, `node tools/build.js` ile sayfaları üretir ve `auto/tefekkurdenizi-sync` dalından **tek bir PR** açar (açık PR varsa günceller). Değişiklik yoksa hiçbir şey yapmaz.
+
+- Yeni yazıların biçimlendirilmesi **Gemini** ile yapılır; çıktı kaynak metinle kelime kelime karşılaştırılır, uyuşmazsa deterministik biçimlendirmeye geçilir ve PR'da "elle inceleme" notu düşülür.
+- Biyografi ve risale sayısı değişirse otomatik **yazılmaz**, yalnızca PR açıklamasında bildirilir.
+- Hiçbir içerik silinmez (yalnızca tarihi geçen/iptal edilen etkinlikler listeden çıkar).
+
+Kurulum (bir kez):
+1. GitHub → Settings → Secrets and variables → Actions → **Secrets**: `GEMINI_API_KEY` ekleyin (anahtar yoksa eşitleme yine çalışır, yalnızca deterministik biçimlendirme kullanır).
+2. İsteğe bağlı `GEMINI_MODEL` (Secret ya da Variable olarak) (varsayılan `gemini-flash-latest`).
+3. Settings → Actions → General → Workflow permissions: **Read and write** seçin ve **Allow GitHub Actions to create and approve pull requests** kutusunu işaretleyin.
+
+Yerelde deneme: `node tools/sync-tefekkur.js --dry` (dosyaya yazmaz, rapor basar).
+
 ## Yayına alma
 Klasörün **tamamını** sitenin kök dizinine yükleyin (Netlify, Cloudflare Pages veya benzeri). Sunucu `/makale/ad/` adresine gelen isteğe `makale/ad/index.html` dosyasını verir; bunu Netlify ve Cloudflare Pages kendiliğinden yapar.
 

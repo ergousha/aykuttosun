@@ -1,0 +1,327 @@
+#!/usr/bin/env node
+/*
+  tefekkurdenizi.com -> assets/data.js eşitleyici
+  ------------------------------------------------
+  Kullanım:
+    node tools/sync-tefekkur.js            # assets/data.js dosyasını günceller
+    node tools/sync-tefekkur.js --dry      # yalnızca rapor yazar, dosyaya dokunmaz
+
+  Ortam değişkenleri (hepsi isteğe bağlı):
+    GEMINI_API_KEY   Yeni yazı/şiir/denemelerin biçimlendirilmesi için Gemini anahtarı.
+                     Yoksa ya da Gemini metni bozarsa deterministik biçimlendirme kullanılır.
+    GEMINI_MODEL     Varsayılan: gemini-flash-latest
+    REPORT_FILE      Raporun yazılacağı dosya (varsayılan: sync-report.md)
+
+  Ne yapar?
+   - Yeni makale / deneme / şiir  -> ilgili listenin sonuna ekler
+   - Yeni söz                     -> "sozler" listesinin sonuna ekler
+   - Etkinlikler                  -> yaklaşan etkinlik listesini kaynakla eşitler
+   - Biyografi / risale sayısı    -> değişmişse yalnızca RAPORLAR (elle inceleme gerekir)
+  Hiçbir şeyi silmez (yaklaşan etkinlikler hariç). Bir değişiklik yoksa dosyaya dokunmaz.
+  Çıktı: stdout'un son satırı "CHANGED=true|false" (GitHub Actions bunu okur).
+*/
+"use strict";
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+
+const BASE = "https://www.tefekkurdenizi.com";
+const ROOT = path.resolve(__dirname, "..");
+const DATA = path.join(ROOT, "assets/data.js");
+const DRY = process.argv.includes("--dry");
+const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+const KEY = process.env.GEMINI_API_KEY || "";
+const REPORT_FILE = process.env.REPORT_FILE || path.join(ROOT, "sync-report.md");
+
+// ---------- Yardımcılar ----------
+const TR = { İ: "i", I: "i", ı: "i", Ö: "o", ö: "o", Ü: "u", ü: "u", Ş: "s", ş: "s", Ç: "c", ç: "c", Ğ: "g", ğ: "g", Â: "a", â: "a", Î: "i", î: "i", Û: "u", û: "u" };
+const fold = (s) => String(s).replace(/[İIıÖöÜüŞşÇçĞğÂâÎîÛû]/g, (c) => TR[c]).toLowerCase().replace(/\u0307/g, "");
+const norm = (s) => fold(s).replace(/[^a-z0-9]+/g, "");
+// İmza ("Aykut Tosun / 16.11.2026") sırası değişebilir; karşılaştırmada yok sayılır.
+const normBody = (s) => norm(s).split("aykuttosun").join("");
+const slugify = (s) => fold(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const report = { added: [], review: [], notes: [] };
+
+async function get(url, { allow404 = false } = {}) {
+  const TRIES = 6;
+  for (let i = 0; i < TRIES; i++) {
+    try {
+      await sleep(250); // Wix art arda isteklerde 429 verebilir
+      const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (aykuttosun-sync)" }, redirect: "follow" });
+      if (r.status === 404 && allow404) return null;
+      if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
+      return await r.text();
+    } catch (e) {
+      if (i === TRIES - 1) throw new Error(url + " alınamadı: " + e.message);
+      await sleep((e.status === 429 ? 8000 : 1500) * (i + 1));
+    }
+  }
+}
+const NAMED = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", sbquo: "‚", bdquo: "„",
+  hellip: "…", ndash: "–", mdash: "—", middot: "·", bull: "•", laquo: "«", raquo: "»", copy: "©", reg: "®", trade: "™"
+};
+// Latin harfleri (ör. uuml, Ccedil, acirc): temel harf + vurgu adından çöz
+const ACC = { uml: "\u0308", acute: "\u0301", grave: "\u0300", circ: "\u0302", cedil: "\u0327", tilde: "\u0303", ring: "\u030a", caron: "\u030c", breve: "\u0306" };
+function named(n) {
+  if (NAMED[n] !== undefined) return NAMED[n];
+  const m = n.match(/^([A-Za-z])(uml|acute|grave|circ|cedil|tilde|ring|caron|breve)$/);
+  if (m) return (m[1] + ACC[m[2]]).normalize("NFC");
+  if (n === "szlig") return "ß";
+  return null;
+}
+const unent = (s) => s.replace(/&(#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi, (m, g) => {
+  if (g[0] === "#") { const n = g[1].toLowerCase() === "x" ? parseInt(g.slice(2), 16) : parseInt(g.slice(1), 10); return String.fromCodePoint(n); }
+  const r = named(g);
+  if (r === null) { report.notes.push("Çözülemeyen HTML varlığı: " + m); return m; }
+  return r;
+});
+// Wix sayfasının görünen metni; satır = blok
+function pageLines(html) {
+  html = html.replace(/<(script|style|svg|noscript)[\s\S]*?<\/\1>/gi, "").replace(/<\/?(br|p|h\d|div|li|span|a|section|article|header|footer)\b[^>]*>/gi, "\n");
+  const t = unent(html.replace(/<[^>]+>/g, ""));
+  const lines = t.split("\n").map((l) => l.replace(/[ \t\u00a0]+/g, " ").trim());
+  const i = lines.findIndex((l) => l === "Giriş Yapınız");
+  let body = i >= 0 ? lines.slice(i + 1) : lines;
+  const end = body.findIndex((l) => l === "Tefekkür Denizi İrfan Okulu" || l.startsWith("© "));
+  if (end >= 0) body = body.slice(0, end);
+  return body; // boş ve \u200b (Wix'in kıta ayırıcısı) satırları korunur
+}
+const cleanLine = (l) => l.replace(/[\u200b\u200c\u200d\ufeff]/g, "").trim();
+
+// ---------- data.js oku / yaz ----------
+const src = fs.readFileSync(DATA, "utf8");
+const sb = { window: {} };
+vm.createContext(sb);
+vm.runInContext(src, sb);
+const D = sb.window.TD;
+const HEAD = src.slice(0, src.indexOf("window.TD"));
+const TAIL = src.slice(src.lastIndexOf("}") + 1);
+let dirty = false;
+
+// ---------- Gemini ----------
+async function gemini(prompt, schema) {
+  const url = `${process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com"}/v1beta/models/${MODEL}:generateContent`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": KEY },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: schema }
+    })
+  });
+  if (!r.ok) throw new Error("Gemini HTTP " + r.status + " " + (await r.text()).slice(0, 300));
+  const j = await r.json();
+  const txt = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts.map((p) => p.text || "").join("");
+  if (!txt) throw new Error("Gemini boş yanıt döndürdü");
+  return JSON.parse(txt);
+}
+
+const KIND = {
+  makaleler: "makale (dinî-tasavvufî yazı)",
+  denemeler: "deneme (kısa edebî yazı)",
+  siirler: "şiir"
+};
+
+// İmzayı "Aykut TOSUN\nGG.AA.YYYY" biçimine getir (kaynakta "Aykut Tosun / 16.11.2026" gibi gelir).
+function fixSignature(body) {
+  const m = body.match(/\s*(?:Aykut\s+Tosun\s*\/?\s*(\d{2}\.\d{2}\.\d{4})|(\d{2}\.\d{2}\.\d{4})\s*\/?\s*Aykut\s+Tosun)\s*$/i);
+  if (!m) return body;
+  return body.slice(0, m.index).replace(/\s+$/, "") + "\n\nAykut TOSUN\n" + (m[1] || m[2]);
+}
+
+// Deterministik biçimlendirme: Wix'te şiirde kıta ayırıcı yalnızca \u200b içeren satırdır;
+// diğer boş satırlar yalnızca blok ayracıdır.
+function plainFormat(kind, lines) {
+  const first = lines.findIndex((l) => cleanLine(l));
+  const out = [];
+  let gap = false;
+  for (const raw of lines.slice(first + 1)) {
+    const l = cleanLine(raw);
+    if (!l) { if (/\u200b/.test(raw)) gap = true; continue; }
+    out.push({ l, gap });
+    gap = false;
+  }
+  const body = kind === "siirler"
+    ? out.map((x, i) => (i ? (x.gap ? "\n\n" : "\n") : "") + x.l).join("")
+    : out.map((x) => x.l).join("\n\n");
+  return fixSignature(body);
+}
+
+async function format(kind, lines, listTitle) {
+  const first = lines.find((l) => cleanLine(l));
+  const rawBody = lines.slice(lines.indexOf(first) + 1).map(cleanLine).filter(Boolean).join("\n");
+  const fallback = () => ({ title: listTitle, body: plainFormat(kind, lines), how: "deterministik" });
+  if (!KEY) return fallback();
+  const prompt =
+    `Aşağıda bir Türkçe ${KIND[kind]} metni var. Sitenin veri biçimine göre düzenle.\n` +
+    `KURALLAR:\n- Metni KELİMESİ KELİMESİNE koru; hiçbir kelime ekleme, silme, değiştirme, düzeltme. Noktalama ve özel harfleri (â, î, û, ’) aynen bırak.\n` +
+    (kind === "siirler"
+      ? `- Şiirde her dize bir satır (\\n), kıtalar arası boş satır (\\n\\n) olsun. Kıta sınırını kaynaktaki boş satırlardan ve uyaktan çıkar.\n`
+      : `- Paragrafları boş satırla (\\n\\n) ayır. Kaynakta yapay olarak bölünmüş satırları aynı paragrafta birleştir; ayrı satırda duran kısa vurgu satırlarını, madde işaretlerini ve dua/“Âmin” satırlarını ayrı bırak.\n`) +
+    `- Sondaki imza ve tarihi "Aykut TOSUN\\nGG.AA.YYYY" biçiminde son iki satır olarak bırak (tarih kaynakta varsa).\n` +
+    `- "title": başlığı kaynaktaki yazımla, okunaklı büyük/küçük harfle yaz (örn. "Kalplerin Anahtarı: Şükür"). Liste başlığı: "${listTitle}".\n` +
+    `- "body": yalnızca gövde; başlığı gövdeye koyma.\n\nKAYNAK BAŞLIK: ${first}\nKAYNAK METİN:\n${rawBody}`;
+  const schema = { type: "OBJECT", properties: { title: { type: "STRING" }, body: { type: "STRING" } }, required: ["title", "body"] };
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const o = await gemini(prompt, schema);
+      if (normBody(o.body) === normBody(rawBody)) {
+        return { title: o.title.trim() || listTitle, body: fixSignature(o.body.trim()), how: "Gemini (" + MODEL + ")" };
+      }
+      report.notes.push(`Gemini çıktısı kaynakla birebir örtüşmedi (deneme ${attempt}): "${listTitle}"`);
+    } catch (e) {
+      report.notes.push(`Gemini hatası (deneme ${attempt}) "${listTitle}": ${e.message}`);
+    }
+  }
+  return fallback();
+}
+
+// ---------- 1) Makale / deneme / şiir ----------
+async function syncArticles() {
+  const lists = { makaleler: "makaleler", denemeler: "denemeler", siirler: "şiirler" };
+  const sitemap = await get(BASE + "/pages-sitemap.xml");
+  const pageUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  let pagesCache = null;
+  const allPages = async () => {
+    if (pagesCache) return pagesCache;
+    pagesCache = [];
+    for (const u of pageUrls) {
+      const h = await get(encodeURI(decodeURI(u)), { allow404: true });
+      if (!h) continue;
+      const lines = pageLines(h);
+      const title = lines.map(cleanLine).find(Boolean) || "";
+      pagesCache.push({ url: u, title, lines });
+    }
+    return pagesCache;
+  };
+
+  for (const [key, livePath] of Object.entries(lists)) {
+    const html = await get(BASE + "/" + encodeURI(livePath));
+    const liveTitles = pageLines(html).map(cleanLine).filter((l) => l.startsWith("- ")).map((l) => l.slice(2).trim());
+    if (!liveTitles.length) throw new Error(`${livePath} sayfasında liste bulunamadı (site yapısı değişmiş olabilir)`);
+    const have = D[key];
+    for (const t of liveTitles) {
+      const nt = norm(t);
+      if (have.some((x) => norm(x.title) === nt)) continue;
+      const pages = await allPages();
+      const cands = pages.filter((p) => norm(p.title) === nt && p.lines.length > 4);
+      if (!cands.length) { report.review.push(`"${t}" (${key}) listede var ama sayfası site haritasında bulunamadı.`); continue; }
+      const p = cands[0];
+      // Başlığı farklı yazılmış ama gövdesi zaten bizde olan içerik (ör. "Bir Mümini Yükselten…") tekrar eklenmesin
+      const pb = normBody(p.lines.slice(1).join(" "));
+      if (have.some((x) => pb.includes(normBody(x.body).slice(0, 120)))) continue;
+      const f = await format(key, p.lines, t);
+      let slug = slugify(f.title), n = 2;
+      while (have.some((x) => x.slug === slug)) slug = slugify(f.title) + "-" + n++;
+      have.push({ slug, title: f.title, body: f.body });
+      dirty = true;
+      report.added.push(`**${f.title}** → \`${key}\` (\`/${slug}/\`) — biçimlendirme: ${f.how} — kaynak: ${p.url}`);
+      if (f.how === "deterministik" && key !== "siirler") report.review.push(`"${f.title}" paragrafları deterministik biçimlendirildi; okunuşunu kontrol edin.`);
+    }
+  }
+}
+
+// ---------- 2) Sözler ----------
+async function syncSozler() {
+  const known = new Set(D.sozler.map((s) => norm(s)));
+  const live = [];
+  for (let i = 1; i < 40; i++) {
+    const h = await get(BASE + "/" + encodeURI(i === 1 ? "sozler" : "sözler-" + i), { allow404: true });
+    if (!h) break;
+    for (const l of pageLines(h).map(cleanLine)) {
+      const m = l.match(/^["“](.+)["”]$/);
+      if (m) live.push(m[1].trim());
+    }
+  }
+  if (live.length < D.sozler.length - 5) { report.review.push(`Kaynakta yalnızca ${live.length} söz bulundu (bizde ${D.sozler.length}); söz sayfaları taranamadı, sözler atlandı.`); return; }
+  for (const s of live) {
+    if (known.has(norm(s))) continue;
+    D.sozler.push(s); known.add(norm(s)); dirty = true;
+    report.added.push(`Söz: “${s.slice(0, 90)}${s.length > 90 ? "…" : ""}”`);
+  }
+}
+
+// ---------- 3) Etkinlikler ----------
+const AYLAR = { oca: 1, şub: 2, mar: 3, nis: 4, may: 5, haz: 6, tem: 7, ağu: 8, eyl: 9, eki: 10, kas: 11, ara: 12 };
+function eventSlug(title) {
+  const t = fold(title);
+  if (t.includes("mesnevi")) return "mesnevi";
+  if (t.includes("irfan sohbet")) return "irfan";
+  if (t.includes("kelam")) return "kelam-i-kadim";
+  if (t.includes("nutuk")) return "nutuklar";
+  return null;
+}
+async function syncEtkinlikler() {
+  const today = new Date().toISOString().slice(0, 10);
+  const sm = await get(BASE + "/event-pages-sitemap.xml");
+  const urls = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  const live = [];
+  for (const u of urls) {
+    const h = await get(u, { allow404: true });
+    if (!h) continue;
+    const sd = h.match(/"startDate"\s*:\s*"(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    if (!sd || sd[1] < today) continue;
+    const lines = pageLines(h).map(cleanLine).filter(Boolean);
+    const title = lines[0] || "";
+    const slug = eventSlug(title);
+    if (!slug) { report.review.push(`Bilinmeyen etkinlik türü atlandı: "${title}" (${u})`); continue; }
+    const loc = (h.match(/"VirtualLocation"[^}]*?"name"\s*:\s*"([^"]+)"/) || [])[1] || "";
+    const yer = /youtube/i.test(loc) ? "YouTube" : /zoom/i.test(loc) ? "Zoom" : loc;
+    // "20 Kas 2026 22:00 – 23:30"
+    const rng = lines.join(" ").match(/\d{1,2} \p{L}{3} \d{4} (\d{2}:\d{2}) [–-] (\d{2}:\d{2})/u);
+    live.push({ tarih: sd[1], saat: sd[2], bitis: rng ? rng[2] : "", slug, title: D.sohbetler.find((s) => s.slug === slug).title, yer });
+  }
+  live.sort((a, b) => (a.tarih + a.saat + a.slug).localeCompare(b.tarih + b.saat + b.slug));
+  const mine = (D.etkinlikler || []).filter((e) => e.tarih >= today);
+  const sig = (l) => JSON.stringify(l);
+  if (sig(live) === sig(mine)) return;
+  const key = (e) => e.tarih + e.slug;
+  const added = live.filter((e) => !mine.some((m) => key(m) === key(e)));
+  const removed = mine.filter((m) => !live.some((e) => key(e) === key(m)));
+  D.etkinlikler = live;
+  dirty = true;
+  report.added.push(`Etkinlikler eşitlendi: ${live.length} yaklaşan etkinlik` + (added.length ? `, yeni: ${added.map((e) => e.tarih + " " + e.title).join("; ")}` : "") + (removed.length ? `, kaldırılan: ${removed.map((e) => e.tarih + " " + e.title).join("; ")}` : ""));
+}
+
+// ---------- 4) Yalnızca rapor: biyografi, risaleler ----------
+async function checkReadOnly() {
+  // Biyografi: bizdeki her paragraf kaynakta olmalı, kaynaktaki her satır bizde (bio + bioAyet) olmalı.
+  // (İlk harf süslü baş harf olarak ayrı satırda gelir; ilk paragraf bu yüzden atlanır.)
+  const bio = pageLines(await get(BASE + "/aykuttosun")).map(cleanLine).filter(Boolean).slice(1);
+  const liveAll = norm(bio.join(" "));
+  // "Nitekim Yüce Allah…" ara cümlesi assets/app.js içinde sabittir.
+  const ours = norm("Nitekim Yüce Allah şöyle buyurmaktadır: " + D.bio.join(" ") + " " + Object.values(D.bioAyet || {}).join(" "));
+  const missing = D.bio.slice(1).filter((p) => !liveAll.includes(norm(p)));
+  const extra = bio.filter((l) => norm(l).length > 3 && !ours.includes(norm(l)));
+  if (missing.length || extra.length) {
+    report.review.push("Biyografi (/aykuttosun) kaynakla farklı; `bio`/`bioAyet` alanlarını elle karşılaştırın." +
+      (extra.length ? " Kaynakta bizde olmayan satır: “" + extra[0].slice(0, 80) + "…”" : "") + (missing.length ? " Kaynakta artık olmayan paragraf sayısı: " + missing.length : ""));
+  }
+  const books = pageLines(await get(BASE + "/tasavvufi-eserler")).map(cleanLine).filter((l) => /^İrfan Risaleleri - \d+/.test(l));
+  if (books.length !== D.risaleler.length) report.review.push(`Kaynakta ${books.length} İrfan Risalesi var, bizde ${D.risaleler.length}; yeni risale için kapak/PDF/metin elle eklenmeli.`);
+}
+
+// ---------- Çalıştır ----------
+(async () => {
+  await syncArticles();
+  await syncSozler();
+  await syncEtkinlikler();
+  await checkReadOnly();
+
+  const md = [
+    "## tefekkurdenizi.com eşitlemesi",
+    "",
+    report.added.length ? "### Eklenen / güncellenen\n" + report.added.map((x) => "- " + x).join("\n") : "Yeni içerik yok.",
+    report.review.length ? "\n### Elle inceleme gerekir\n" + report.review.map((x) => "- " + x).join("\n") : "",
+    report.notes.length ? "\n### Notlar\n" + report.notes.map((x) => "- " + x).join("\n") : "",
+    ""
+  ].join("\n");
+  console.log(md);
+  if (!DRY) {
+    fs.writeFileSync(REPORT_FILE, md);
+    if (dirty) fs.writeFileSync(DATA, HEAD + "window.TD = " + JSON.stringify(D, null, 1) + TAIL);
+  }
+  console.log("CHANGED=" + (dirty ? "true" : "false"));
+})().catch((e) => { console.error("HATA:", e.message); process.exit(1); });

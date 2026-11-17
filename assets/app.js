@@ -124,7 +124,7 @@
   var P = {};
 
   P.home = function () {
-    var soz = D.sozler[dayIndex(D.sozler.length)];
+    var soz = D.gununSozu || D.sozler[dayIndex(D.sozler.length)]; // gununSozu: kaynak sitedeki günün sözü (otomatik eşitlenir)
     var latest = [
       { t: D.makaleler[0], b: "makale", k: "Makale" }, { t: D.denemeler[0], b: "deneme", k: "Deneme" }, { t: D.siirler[0], b: "siir", k: "Şiir" }
     ];
@@ -135,7 +135,7 @@
 
       '<section class="section"><div class="wrap"><div class="grid g2">' +
       '<div class="verse"><span class="eyebrow">Günün Âyeti</span><blockquote>' + esc(D.ayet.metin) + '</blockquote><span class="src">' + esc(D.ayet.kaynak) + "</span></div>" +
-      '<div class="verse"><span class="eyebrow">Günün Hadîs-i Şerîfi</span><p class="intro">' + esc(excerpt(D.hadis.giris, 150)) + '</p><blockquote style="font-size:1.15rem">' + esc(D.hadis.metin) + '</blockquote><span class="src">' + esc(D.hadis.kaynak) + "</span></div>" +
+      '<div class="verse"><span class="eyebrow">Günün Hadîs-i Şerîfi</span><p class="intro">' + esc(excerpt(D.hadis.giris, 150)) + '</p><blockquote style="font-size:1.15rem;white-space:pre-line">' + esc(D.hadis.metin) + '</blockquote><span class="src">' + esc(D.hadis.kaynak) + "</span></div>" +
       "</div></div></section>" +
 
       '<section class="section alt"><div class="wrap"><div class="sec-head"><div><span class="eyebrow">Sohbetler</span><h2>İrfan Meclisleri</h2></div><a href="/sohbetler/">Tümü →</a></div><div class="grid g4">' +

@@ -34,7 +34,9 @@ Her içeriğin kendi gerçek adresi vardır (ör. `/makale/kalplerin-anahtari-su
 > Sayfaları yeniden üretmeden yalnızca `data.js`'i yüklerseniz site tarayıcıda yine güncel görünür, ancak Google'ın gördüğü HTML ve site haritası eski kalır.
 
 ## Otomatik eşitleme (tefekkurdenizi.com → bu site)
-`.github/workflows/sync-tefekkurdenizi.yml` her gün 05:17 UTC'de (ve "Run workflow" ile elle) `tools/sync-tefekkur.js` çalıştırır. Yeni makale/deneme/şiir/söz ve yaklaşan etkinlikleri bulursa `assets/data.js` dosyasını günceller, `node tools/build.js` ile sayfaları üretir ve `auto/tefekkurdenizi-sync` dalından **tek bir PR** açar (açık PR varsa günceller). Değişiklik yoksa hiçbir şey yapmaz.
+`.github/workflows/sync-tefekkurdenizi.yml` günde iki kez, **09:00 ve 21:00 Türkiye saatinde** (06:00/18:00 UTC; ve "Run workflow" ile elle) `tools/sync-tefekkur.js` çalıştırır. Yeni makale/deneme/şiir/söz ve yaklaşan etkinlikleri bulursa `assets/data.js` dosyasını günceller, `node tools/build.js` ile sayfaları üretir ve `auto/tefekkurdenizi-sync` dalından **tek bir PR** açar (açık PR varsa günceller). Değişiklik yoksa hiçbir şey yapmaz.
+
+Ana sayfadaki **Günün Ayeti, Günün Hadis-i Şerifi ve Günün Sözü** ise kaynak sitede her gün değiştiği için PR beklemeden, doğrulandıktan sonra doğrudan `main`'e işlenir (`node tools/sync-tefekkur.js --daily`; değerler `data.js` içindeki `ayet`, `hadis`, `gununSozu`). Kaynak sayfanın yapısı beklenenden farklıysa çalıştırma hata verir ve hiçbir şey yazmaz. Bu davranışı istemezseniz iş akışındaki ilk adımı silin.
 
 - Yeni yazıların biçimlendirilmesi **Gemini** ile yapılır; çıktı kaynak metinle kelime kelime karşılaştırılır, uyuşmazsa deterministik biçimlendirmeye geçilir ve PR'da "elle inceleme" notu düşülür.
 - Biyografi ve risale sayısı değişirse otomatik **yazılmaz**, yalnızca PR açıklamasında bildirilir.

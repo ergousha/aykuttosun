@@ -5,6 +5,7 @@
   Kullanım:
     node tools/sync-tefekkur.js            # assets/data.js dosyasını günceller
     node tools/sync-tefekkur.js --dry      # yalnızca rapor yazar, dosyaya dokunmaz
+    node tools/sync-tefekkur.js --daily    # yalnızca ana sayfadaki günün ayeti / hadisi / sözünü eşitler
 
   Ortam değişkenleri (hepsi isteğe bağlı):
     GEMINI_API_KEY   Yeni yazı/şiir/denemelerin biçimlendirilmesi için Gemini anahtarı.
@@ -17,6 +18,8 @@
    - Yeni söz                     -> "sozler" listesinin sonuna ekler
    - Etkinlikler                  -> yaklaşan etkinlik listesini kaynakla eşitler
    - Biyografi / risale sayısı    -> değişmişse yalnızca RAPORLAR (elle inceleme gerekir)
+  --daily kipi yalnızca ana sayfadaki "Günün Ayeti", "Günün Hadis-i Şerifi" ve "Aykut Tosun'dan"
+  (günün sözü) alanlarını okuyup data.js içindeki ayet / hadis / gununSozu değerlerine yazar.
   Hiçbir şeyi silmez (yaklaşan etkinlikler hariç). Bir değişiklik yoksa dosyaya dokunmaz.
   Çıktı: stdout'un son satırı "CHANGED=true|false" (GitHub Actions bunu okur).
 */
@@ -29,6 +32,7 @@ const BASE = "https://www.tefekkurdenizi.com";
 const ROOT = path.resolve(__dirname, "..");
 const DATA = path.join(ROOT, "assets/data.js");
 const DRY = process.argv.includes("--dry");
+const DAILY = process.argv.includes("--daily");
 const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 const KEY = process.env.GEMINI_API_KEY || "";
 const REPORT_FILE = process.env.REPORT_FILE || path.join(ROOT, "sync-report.md");
@@ -303,15 +307,54 @@ async function checkReadOnly() {
   if (books.length !== D.risaleler.length) report.review.push(`Kaynakta ${books.length} İrfan Risalesi var, bizde ${D.risaleler.length}; yeni risale için kapak/PDF/metin elle eklenmeli.`);
 }
 
+// ---------- 5) Günlük: ana sayfadaki ayet / hadis / söz ----------
+async function syncGunluk() {
+  const lines = pageLines(await get(BASE + "/")).map(cleanLine).filter(Boolean);
+  const iA = lines.findIndex((l) => /^Günün Ayeti:?$/i.test(l));
+  const iH = lines.findIndex((l) => /^Günün Hadis/i.test(l));
+  const iS = lines.findIndex((l) => /^Aykut Tosun'dan$/i.test(l));
+  if (iA < 0 || iH < iA || iS < iH) throw new Error("Ana sayfada günün ayeti/hadisi/sözü bölümleri bulunamadı (site yapısı değişmiş olabilir)");
+  const fail = (m) => { throw new Error("Günlük içerik doğrulanamadı: " + m); };
+
+  const a = lines.slice(iA + 1, iH);
+  if (a.length < 2) fail("ayet");
+  const ayet = { kaynak: a[0], metin: a.slice(1).join(" ").replace(/\s+/g, " ") };
+  if (!/\d/.test(ayet.kaynak) || ayet.kaynak.length > 80 || ayet.metin.length < 15 || ayet.metin.length > 1500) fail("ayet biçimi");
+
+  let h = lines.slice(iH + 1, iS);
+  let kaynak = "";
+  const last = h[h.length - 1];
+  if (last && /^\(.*\)$/.test(last)) { kaynak = last.slice(1, -1).trim(); h = h.slice(0, -1); }
+  if (!kaynak || h.length < 2) fail("hadis kaynağı/metni");
+  const giris = /:$/.test(h[0]) ? h[0] : "";
+  const metin = (giris ? h.slice(1) : h).join("\n");
+  const hadis = { kaynak, giris, metin };
+  if (metin.length < 20 || metin.length > 3000 || kaynak.length > 200) fail("hadis biçimi");
+
+  const sl = lines.slice(iS + 1);
+  while (sl.length && /^[-–—]\s*Aykut\s+Tosun$/i.test(sl[sl.length - 1])) sl.pop();
+  const soz = sl.join(" ").replace(/^["“”]+|["“”]+$/g, "").replace(/\s+/g, " ").trim();
+  if (soz.length < 10 || soz.length > 600) fail("söz biçimi");
+
+  const changes = [];
+  if (JSON.stringify(D.ayet) !== JSON.stringify(ayet)) { D.ayet = ayet; changes.push(`Günün ayeti: ${ayet.kaynak}`); }
+  if (JSON.stringify(D.hadis) !== JSON.stringify(hadis)) { D.hadis = hadis; changes.push(`Günün hadisi: ${hadis.kaynak}`); }
+  if (D.gununSozu !== soz) { D.gununSozu = soz; changes.push(`Günün sözü: “${soz.slice(0, 70)}${soz.length > 70 ? "…" : ""}”`); }
+  if (changes.length) { dirty = true; report.added.push(...changes); }
+}
+
 // ---------- Çalıştır ----------
 (async () => {
-  await syncArticles();
-  await syncSozler();
-  await syncEtkinlikler();
-  await checkReadOnly();
+  if (DAILY) await syncGunluk();
+  else {
+    await syncArticles();
+    await syncSozler();
+    await syncEtkinlikler();
+    await checkReadOnly();
+  }
 
   const md = [
-    "## tefekkurdenizi.com eşitlemesi",
+    DAILY ? "## Günlük içerik (ayet / hadis / söz)" : "## tefekkurdenizi.com eşitlemesi",
     "",
     report.added.length ? "### Eklenen / güncellenen\n" + report.added.map((x) => "- " + x).join("\n") : "Yeni içerik yok.",
     report.review.length ? "\n### Elle inceleme gerekir\n" + report.review.map((x) => "- " + x).join("\n") : "",

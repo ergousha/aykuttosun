@@ -9,13 +9,13 @@ window.TD = {
   "motto": "İlim, kendinden var olana değil, kendini var edene götürür."
  },
  "ayet": {
-  "kaynak": "Bakara Sûresi, 101",
-  "metin": "Onlara, Allah katından ellerinde bulunan Kitab’ı (Tevrat’ı) doğrulayıcı bir peygamber gelince, kendilerine kitap verilenlerden bir kısmı, sanki bilmiyorlarmış gibi Allah’ın Kitab’ını (Tevrat’ı) arkalarına attılar."
+  "kaynak": "Bakara Suresi, 104",
+  "metin": "Ey iman edenler! “Râ’inâ (bizi gözet)” demeyin, “unzurnâ (bize bak)” deyin ve dinleyin. Kâfirler için acıklı bir azap vardır."
  },
  "hadis": {
-  "kaynak": "Tirmizî, İlim, 16; Ebû Dâvûd, Sünnet, 5",
-  "giris": "Irbâd b. Sâriye şöyle anlatmaktadır: “Resûlullah (sav) bir gün sabah namazından sonra gözleri yaşartan, kalpleri hüzünlendiren son derece dokunaklı bir konuşma yaptı. (Öyle ki ashâbdan) biri (dayanamayarak), “Ey Allah’ın Resûlü! Sanki veda konuşması yaptın, bize ne tavsiye edersin?” dedi. Bunun üzerine Allah Resûlü şu tavsiyelerde bulundu:",
-  "metin": "“Size Allah’a karşı sorumluluk bilincinde olmayı ve Habeşli bir köle de olsa (başınızdaki idareciyi) dinleyip itaat etmeyi tavsiye ederim. Çünkü benden sonra yaşayacak olanlarınız çok ihtilâflar görecekler. Sonradan çıkarılmış (aslı olmayan) şeylerden ise sakının! Çünkü sonradan çıkarılmış her şey bid’attir. Sizden kim bu dönemlere ulaşırsa, benim sünnetime ve doğru yolu bulan, hidayete erdirilmiş halifelerin sünnetine sarılsın! Bunlara azı dişlerinizle (tuttuğunuz gibi sımsıkı) sarılın.”"
+  "kaynak": "T1327 Tirmizî, Ahkâm, 3; D3592 Ebû Dâvûd, Kadâ’, (Akdiye), 11",
+  "giris": "Muâz’ın anlattığına göre, Allah Resûlü (sav) onu Yemen’e (vali olarak) gönderirken aralarında şöyle bir diyalog geçmişti:",
+  "metin": "—(Sana bir dava geldiğinde) nasıl hüküm vereceksin?\n—Allah’ın Kitabı’na göre hüküm vereceğim.\n—(O konuda) Allah’ın Kitabı’nda bir hüküm bulamazsan?\n—Resûlullah’ın (sav) sünneti ile (karar vereceğim).\n—Resûlullah’ın (sav) sünnetinde de yoksa?\n—Kendi görüşümle ictihad ederek bir karara varacak ve ona göre hüküm vereceğim.\nBunun üzerine Hz. Peygamber “Resûlü’nün elçisini (Resûlü’nün arzuladığı cevabı vermeye) muvaffak kılan Allah’a hamdolsun.” buyurmuştu."
  },
  "bio": [
   "Aykut Tosun, sanatın inceliğini, ilmin ciddiyetini ve irfanın derinliğini aynı çizgide buluşturan; eğitim, müzik ve tasavvuf alanlarında uzun yıllardır çalışmalarını sürdüren eğitimci, neyzen, müzisyen, araştırmacı ve mutasavvıftır.",
@@ -426,5 +426,6 @@ window.TD = {
   "Benlik ikilikte kalmaktır. Benlikten geçeceksin ki, biz olasın.",
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
- ]
+ ],
+ "gununSozu": "Allah ile yol tutmayanın Allah'a vardığı görülmemiştir. Allah'a varmak, ancak Allah ile mümkündür."
 };

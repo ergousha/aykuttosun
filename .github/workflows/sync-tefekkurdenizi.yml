@@ -34,7 +34,7 @@ jobs:
         id: sync
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || vars.GEMINI_MODEL }}
           REPORT_FILE: ${{ runner.temp }}/sync-report.md
         run: node tools/sync-tefekkur.js | tee "$RUNNER_TEMP/sync.log"; grep -q '^CHANGED=true' "$RUNNER_TEMP/sync.log" && echo "changed=true" >> "$GITHUB_OUTPUT" || echo "changed=false" >> "$GITHUB_OUTPUT"
 

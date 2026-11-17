@@ -42,7 +42,7 @@ Her içeriğin kendi gerçek adresi vardır (ör. `/makale/kalplerin-anahtari-su
 
 Kurulum (bir kez):
 1. GitHub → Settings → Secrets and variables → Actions → **Secrets**: `GEMINI_API_KEY` ekleyin (anahtar yoksa eşitleme yine çalışır, yalnızca deterministik biçimlendirme kullanır).
-2. İsteğe bağlı **Variables**: `GEMINI_MODEL` (varsayılan `gemini-flash-latest`).
+2. İsteğe bağlı `GEMINI_MODEL` (Secret ya da Variable olarak) (varsayılan `gemini-flash-latest`).
 3. Settings → Actions → General → Workflow permissions: **Read and write** seçin ve **Allow GitHub Actions to create and approve pull requests** kutusunu işaretleyin.
 
 Yerelde deneme: `node tools/sync-tefekkur.js --dry` (dosyaya yazmaz, rapor basar).

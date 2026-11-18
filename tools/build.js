@@ -52,7 +52,7 @@ for (const f of ["assets/style.css", "assets/data.js", "assets/risaleler.js", "a
 
 // ---------- Yardımcılar ----------
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const clip = (t, n = 158) => excerpt(String(t).replace(/\s+/g, " "), n);
+const clip = (t, n = 158) => excerpt(String(t).replace(/(^|\n)## /g, "$1").replace(/\s+/g, " "), n);
 const abs = (u) => (/^https?:/.test(u) ? u : SITE + u);
 const OG_DEFAULT = SITE + "/icons/og-image.png";
 

@@ -3,47 +3,65 @@ name: Sync tefekkurdenizi.com
 # Günde 2 kez (09:00 ve 21:00 Türkiye saati) tefekkurdenizi.com'u kontrol eder.
 #  1) Ana sayfadaki günün ayeti / hadisi / sözü doğrudan main'e işlenir (küçük, otomatik doğrulanır).
 #  2) Yeni makale / deneme / şiir / söz / etkinlik varsa tek bir PR açılır/güncellenir (incelemeli).
+# Elle çalıştırırken "dry_run" seçilirse (ya da main dışındaki bir dalda çalışırsa) hiçbir şey
+# push edilmez; rapor iş özetine yazılır ve güncellenmiş data.js artefakt olarak yüklenir.
 on:
   schedule:
     - cron: "0 6,18 * * *" # 06:00 ve 18:00 UTC = 09:00 ve 21:00 TSİ (UTC+3, yaz/kış saati yok)
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Deneme: push / PR yapma, sonucu artefakt olarak yükle"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
   pull-requests: write
 
 concurrency:
-  group: sync-tefekkurdenizi
+  group: sync-tefekkurdenizi-${{ github.ref_name }}
   cancel-in-progress: false
 
 env:
   BRANCH: auto/tefekkurdenizi-sync
+  # Yalnızca main üzerinde ve deneme kipi kapalıyken yazılır
+  PUBLISH: ${{ github.ref_name == 'main' && !inputs.dry_run }}
+
+defaults:
+  run:
+    # "bash" açıkça verilince Actions -eo pipefail kullanır; "| tee" artık hatayı yutmaz.
+    shell: bash
 
 jobs:
   sync:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
+
+      - name: pdftotext (PDF olarak yayımlanan yazılar için)
+        run: command -v pdftotext || { sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils; }
+
+      - name: Git kimliği
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Günün ayeti / hadisi / sözü (doğrudan main)
-        id: daily
         env:
           REPORT_FILE: ${{ runner.temp }}/daily-report.md
         run: |
           node tools/sync-tefekkur.js --daily | tee "$RUNNER_TEMP/daily.log"
-          if grep -q '^CHANGED=true' "$RUNNER_TEMP/daily.log"; then
+          cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
+          if grep -q '^CHANGED=true' "$RUNNER_TEMP/daily.log" && [ "$PUBLISH" = "true" ]; then
             node tools/build.js
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -A
-            git commit -m "Update verse, hadith and quote of the day from tefekkurdenizi.com" -m "$(sed 1,2d "$RUNNER_TEMP/daily-report.md")"
+            git commit -m "Update verse, hadith and quote of the day from tefekkurdenizi.com" -m "$(sed 1,2d "$REPORT_FILE")"
             git pull --rebase origin main
             git push origin HEAD:main
           fi
@@ -54,20 +72,30 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || vars.GEMINI_MODEL }}
           REPORT_FILE: ${{ runner.temp }}/sync-report.md
-        run: node tools/sync-tefekkur.js | tee "$RUNNER_TEMP/sync.log"; grep -q '^CHANGED=true' "$RUNNER_TEMP/sync.log" && echo "changed=true" >> "$GITHUB_OUTPUT" || echo "changed=false" >> "$GITHUB_OUTPUT"
+        run: |
+          node tools/sync-tefekkur.js | tee "$RUNNER_TEMP/sync.log"
+          cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
+          if grep -q '^CHANGED=true' "$RUNNER_TEMP/sync.log"; then echo "changed=true"; else echo "changed=false"; fi >> "$GITHUB_OUTPUT"
 
       - name: Sayfaları yeniden üret
         if: steps.sync.outputs.changed == 'true'
         run: node tools/build.js
 
+      - name: Deneme sonucu (artefakt)
+        if: steps.sync.outputs.changed == 'true' && env.PUBLISH != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: sync-result
+          path: |
+            assets/data.js
+            ${{ runner.temp }}/sync-report.md
+
       - name: Dal oluştur, push et ve PR aç/güncelle
-        if: steps.sync.outputs.changed == 'true'
+        if: steps.sync.outputs.changed == 'true' && env.PUBLISH == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPORT: ${{ runner.temp }}/sync-report.md
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"
           git add -A
           git commit -m "Sync new content from tefekkurdenizi.com"

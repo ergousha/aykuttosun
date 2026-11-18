@@ -14,7 +14,9 @@
     REPORT_FILE      Raporun yazılacağı dosya (varsayılan: sync-report.md)
 
   Ne yapar?
-   - Yeni makale / deneme / şiir  -> ilgili listenin sonuna ekler
+   - Yeni makale / deneme / şiir  -> ilgili listenin sonuna ekler. Liste sayfasındaki bağlantı izlenir;
+                                     bağlantı PDF ise metin PDF'ten çıkarılır (pdftotext gerekir) ve
+                                     sayfada "PDF olarak indir" bağlantısı gösterilir.
    - Yeni söz                     -> "sozler" listesinin sonuna ekler
    - Etkinlikler                  -> yaklaşan etkinlik listesini kaynakla eşitler
    - Biyografi / risale sayısı    -> değişmişse yalnızca RAPORLAR (elle inceleme gerekir)
@@ -27,6 +29,8 @@
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
+const os = require("os");
+const { execFileSync } = require("child_process");
 
 const BASE = "https://www.tefekkurdenizi.com";
 const ROOT = path.resolve(__dirname, "..");
@@ -47,19 +51,27 @@ const slugify = (s) => fold(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const report = { added: [], review: [], notes: [] };
 
-async function get(url, { allow404 = false } = {}) {
-  const TRIES = 6;
+// Wix (özellikle GitHub Actions IP'lerinden) art arda isteklerde 429 verir: istekleri arala,
+// 429'da Retry-After'a uy ve uzun bekle.
+let lastReq = 0;
+async function get(url, { allow404 = false, binary = false } = {}) {
+  const TRIES = 7;
   for (let i = 0; i < TRIES; i++) {
+    const wait = lastReq + 1200 - Date.now();
+    if (wait > 0) await sleep(wait);
+    lastReq = Date.now();
+    let status = 0, retryAfter = 0;
     try {
-      await sleep(250); // Wix art arda isteklerde 429 verebilir
       const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (aykuttosun-sync)" }, redirect: "follow" });
+      status = r.status;
       if (r.status === 404 && allow404) return null;
-      if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
-      return await r.text();
+      if (r.ok) return binary ? Buffer.from(await r.arrayBuffer()) : await r.text();
+      retryAfter = parseInt(r.headers.get("retry-after") || "0", 10) || 0;
+      if (i === TRIES - 1) throw new Error("HTTP " + r.status);
     } catch (e) {
       if (i === TRIES - 1) throw new Error(url + " alınamadı: " + e.message);
-      await sleep((e.status === 429 ? 8000 : 1500) * (i + 1));
     }
+    await sleep(status === 429 ? Math.max(retryAfter * 1000, 15000 * (i + 1)) : 2000 * (i + 1));
   }
 }
 const NAMED = {
@@ -105,20 +117,21 @@ const TAIL = src.slice(src.lastIndexOf("}") + 1);
 let dirty = false;
 
 // ---------- Gemini ----------
-async function gemini(prompt, schema) {
+async function gemini(prompt, schema, extraParts = []) {
   const url = `${process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com"}/v1beta/models/${MODEL}:generateContent`;
   const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": KEY },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: schema }
+      contents: [{ parts: [...extraParts, { text: prompt }] }],
+      generationConfig: { temperature: 0, maxOutputTokens: 65536, responseMimeType: "application/json", responseSchema: schema }
     })
   });
   if (!r.ok) throw new Error("Gemini HTTP " + r.status + " " + (await r.text()).slice(0, 300));
   const j = await r.json();
-  const txt = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts.map((p) => p.text || "").join("");
-  if (!txt) throw new Error("Gemini boş yanıt döndürdü");
+  const c = j.candidates && j.candidates[0];
+  const txt = c && c.content && (c.content.parts || []).map((p) => p.text || "").join("");
+  if (!txt) throw new Error("Gemini boş yanıt döndürdü" + (c && c.finishReason ? " (" + c.finishReason + ")" : ""));
   return JSON.parse(txt);
 }
 
@@ -182,47 +195,115 @@ async function format(kind, lines, listTitle) {
   return fallback();
 }
 
+// ---------- PDF ----------
+const ARABIC = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/;
+// PDF metin katmanında "fi"/"fl" bağ harfleri kopup başka yere düşer, Arapça satırlar bozuk çıkar;
+// karşılaştırmada bunları yok say.
+const normPdf = (s) => normBody(String(s).replace(new RegExp(ARABIC.source, "g"), " ")).replace(/f[il]/g, "").split("tefekkurdeniziirfanokulu").join("");
+function pdfText(buf) {
+  const f = path.join(os.tmpdir(), "tefekkur-" + process.pid + ".pdf");
+  fs.writeFileSync(f, buf);
+  try { return execFileSync("pdftotext", ["-enc", "UTF-8", f, "-"], { encoding: "utf8", maxBuffer: 64 << 20 }); }
+  catch (e) { throw new Error("pdftotext çalıştırılamadı (poppler-utils kurulu mu?): " + e.message); }
+  finally { fs.rmSync(f, { force: true }); }
+}
+// Kelime düzeyinde benzerlik: Gemini metni ile PDF metin katmanı arasındaki fark oranı
+function wordDiff(a, b) {
+  const w = (s) => fold(String(s).replace(new RegExp(ARABIC.source, "g"), " ")).replace(/f[il]/g, "").split(/[^a-z0-9]+/).filter((x) => x.length > 1);
+  const A = w(a), B = w(b), m = new Map();
+  for (const x of A) m.set(x, (m.get(x) || 0) + 1);
+  let common = 0;
+  for (const x of B) { const n = m.get(x) || 0; if (n) { common++; m.set(x, n - 1); } }
+  return { diff: A.length + B.length - 2 * common, total: Math.max(A.length, B.length) };
+}
+// Deterministik: boş satırla ayrılmış blokları paragraf yap; Arapça satırları ve başlık/imza bloklarını at
+function plainPdf(text, title) {
+  const paras = text.replace(/\f/g, "\n\n").split(/\n\s*\n/).map((p) => p.split("\n").filter((l) => !ARABIC.test(l)).map((l) => l.trim()).filter(Boolean).join(" "))
+    .filter((p) => p && !/^f[il]( f[il])*$/.test(p));
+  const nt = norm(title);
+  while (paras.length && (nt.includes(norm(paras[0])) || norm(paras[0]) === "aykuttosun")) paras.shift();
+  return paras.join("\n\n");
+}
+async function formatPdf(kind, buf, listTitle, url) {
+  const text = pdfText(buf);
+  if (normPdf(text).length < 200) throw new Error("PDF'ten metin çıkmadı (taranmış görüntü olabilir): " + url);
+  const fallback = () => ({ title: listTitle, body: plainPdf(text, listTitle), how: "deterministik (PDF)" });
+  if (!KEY) return fallback();
+  const prompt =
+    `Ekteki PDF, Aykut Tosun'a ait bir Türkçe ${KIND[kind]}. Metni sitenin veri biçimine dönüştür.\n` +
+    `KURALLAR:\n- Türkçe metni KELİMESİ KELİMESİNE koru; hiçbir kelime ekleme, silme, değiştirme, özetleme. Noktalama ve özel harfleri (â, î, û, ʿ, ’) aynen bırak.\n` +
+    `- Arap harfli metinleri (âyet/hadis asılları) TAMAMEN ÇIKAR; yalnızca Türkçe meal/açıklama kalsın.\n` +
+    `- Satır sonlarında bölünmüş cümleleri birleştir; paragrafları boş satırla (\\n\\n) ayır.\n` +
+    `- Bölüm başlıklarını ("Giriş", "1. …", "Sonuç", "Kaynakça", "Kaynak Notları" gibi) ayrı paragraf olarak "## " ile başlat.\n` +
+    `- Kaynakça ve kaynak notlarında her madde ayrı paragraf olsun.\n` +
+    `- Belgenin başındaki başlığı ve yazar adını gövdeye koyma; alt başlık varsa gövdenin ilk paragrafı olsun.\n` +
+    `- Sondaki imzayı "Aykut TOSUN\\nGG.AA.YYYY" biçiminde son iki satır yap.\n` +
+    `- "title": başlığı okunaklı büyük/küçük harfle yaz (örn. "Allah'ın Rahmetinden Ümit Kesilir mi?"). Liste başlığı: "${listTitle}".`;
+  const schema = { type: "OBJECT", properties: { title: { type: "STRING" }, body: { type: "STRING" } }, required: ["title", "body"] };
+  const pdfPart = { inline_data: { mime_type: "application/pdf", data: buf.toString("base64") } };
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const o = await gemini(prompt, schema, [pdfPart]);
+      const body = fixSignature(o.body.split(/\n{2,}/).filter((p) => !ARABIC.test(p)).join("\n\n").trim());
+      // Kaynak = PDF metin katmanı (başlık ve "Tefekkür Denizi İrfan Okulu" hariç)
+      const srcN = normPdf(text).replace(normPdf(listTitle), ""), outN = normPdf(body);
+      const d = wordDiff(text, (o.title || "") + " " + body + " " + listTitle + " Tefekkür Denizi İrfan Okulu");
+      if (srcN.includes(outN) && outN.length > srcN.length * 0.97 || d.diff <= Math.max(3, d.total * 0.003)) {
+        return { title: (o.title || "").trim() || listTitle, body, how: "Gemini (" + MODEL + ", PDF)", diff: d };
+      }
+      report.notes.push(`Gemini PDF çıktısı kaynakla örtüşmedi (deneme ${attempt}, ${d.diff}/${d.total} kelime farkı): "${listTitle}"`);
+    } catch (e) {
+      report.notes.push(`Gemini hatası (deneme ${attempt}) "${listTitle}": ${e.message}`);
+    }
+  }
+  return fallback();
+}
+
 // ---------- 1) Makale / deneme / şiir ----------
+// Liste sayfasındaki "- Başlık" bağlantılarını (başlık, adres) olarak çıkar
+function listLinks(html) {
+  const out = [];
+  for (const m of html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
+    const t = cleanLine(unent(m[2].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " "));
+    if (t.startsWith("- ")) out.push({ title: t.slice(2).trim(), href: unent(m[1]) });
+  }
+  return out;
+}
+const sameTitle = (a, b) => { const x = norm(a), y = norm(b); return x === y || (Math.min(x.length, y.length) > 15 && (x.includes(y) || y.includes(x))); };
+
 async function syncArticles() {
   const lists = { makaleler: "makaleler", denemeler: "denemeler", siirler: "şiirler" };
-  const sitemap = await get(BASE + "/pages-sitemap.xml");
-  const pageUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-  let pagesCache = null;
-  const allPages = async () => {
-    if (pagesCache) return pagesCache;
-    pagesCache = [];
-    for (const u of pageUrls) {
-      const h = await get(encodeURI(decodeURI(u)), { allow404: true });
-      if (!h) continue;
-      const lines = pageLines(h);
-      const title = lines.map(cleanLine).find(Boolean) || "";
-      pagesCache.push({ url: u, title, lines });
-    }
-    return pagesCache;
-  };
-
   for (const [key, livePath] of Object.entries(lists)) {
     const html = await get(BASE + "/" + encodeURI(livePath));
     const liveTitles = pageLines(html).map(cleanLine).filter((l) => l.startsWith("- ")).map((l) => l.slice(2).trim());
     if (!liveTitles.length) throw new Error(`${livePath} sayfasında liste bulunamadı (site yapısı değişmiş olabilir)`);
+    const links = listLinks(html);
     const have = D[key];
     for (const t of liveTitles) {
-      const nt = norm(t);
-      if (have.some((x) => norm(x.title) === nt)) continue;
-      const pages = await allPages();
-      const cands = pages.filter((p) => norm(p.title) === nt && p.lines.length > 4);
-      if (!cands.length) { report.review.push(`"${t}" (${key}) listede var ama sayfası site haritasında bulunamadı.`); continue; }
-      const p = cands[0];
-      // Başlığı farklı yazılmış ama gövdesi zaten bizde olan içerik (ör. "Bir Mümini Yükselten…") tekrar eklenmesin
-      const pb = normBody(p.lines.slice(1).join(" "));
-      if (have.some((x) => pb.includes(normBody(x.body).slice(0, 120)))) continue;
-      const f = await format(key, p.lines, t);
+      if (have.some((x) => sameTitle(x.title, t))) continue;
+      const link = links.find((l) => norm(l.title) === norm(t));
+      if (!link) { report.review.push(`"${t}" (${key}) listede var ama bağlantısı bulunamadı; elle ekleyin.`); continue; }
+      const url = new URL(link.href, BASE + "/").href;
+      let f, pdf = "";
+      if (/\.pdf($|\?)/i.test(url)) {
+        const buf = await get(url, { binary: true });
+        f = await formatPdf(key, buf, t, url);
+        pdf = url;
+        report.notes.push(`"${f.title}" kaynakta yalnızca PDF olarak yayımlanmış; metin PDF'ten alındı, sayfaya PDF indirme bağlantısı eklendi. Arap harfli âyet/hadis asılları sitede yer almıyor (PDF'te var).`);
+      } else {
+        const lines = pageLines(await get(encodeURI(decodeURI(url))));
+        if (lines.filter((l) => cleanLine(l)).length < 3) { report.review.push(`"${t}" sayfası boş görünüyor: ${url}`); continue; }
+        // Başlığı farklı yazılmış ama gövdesi zaten bizde olan içerik tekrar eklenmesin
+        const pb = normBody(lines.slice(1).join(" "));
+        if (have.some((x) => pb.includes(normBody(x.body).slice(0, 120)))) continue;
+        f = await format(key, lines, t);
+      }
       let slug = slugify(f.title), n = 2;
       while (have.some((x) => x.slug === slug)) slug = slugify(f.title) + "-" + n++;
-      have.push({ slug, title: f.title, body: f.body });
+      have.push(Object.assign({ slug, title: f.title, body: f.body }, pdf ? { pdf } : {}));
       dirty = true;
-      report.added.push(`**${f.title}** → \`${key}\` (\`/${slug}/\`) — biçimlendirme: ${f.how} — kaynak: ${p.url}`);
-      if (f.how === "deterministik" && key !== "siirler") report.review.push(`"${f.title}" paragrafları deterministik biçimlendirildi; okunuşunu kontrol edin.`);
+      report.added.push(`**${f.title}** → \`${key}\` (\`/${key.replace(/ler$|lar$/, "")}/${slug}/\`) — biçimlendirme: ${f.how}${f.diff ? ` (${f.diff.diff}/${f.diff.total} kelime farkı)` : ""} — kaynak: ${url}`);
+      if (/^deterministik/.test(f.how) && key !== "siirler") report.review.push(`"${f.title}" paragrafları deterministik biçimlendirildi; okunuşunu kontrol edin.`);
     }
   }
 }
@@ -248,7 +329,6 @@ async function syncSozler() {
 }
 
 // ---------- 3) Etkinlikler ----------
-const AYLAR = { oca: 1, şub: 2, mar: 3, nis: 4, may: 5, haz: 6, tem: 7, ağu: 8, eyl: 9, eki: 10, kas: 11, ara: 12 };
 function eventSlug(title) {
   const t = fold(title);
   if (t.includes("mesnevi")) return "mesnevi";
@@ -263,6 +343,8 @@ async function syncEtkinlikler() {
   const urls = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
   const live = [];
   for (const u of urls) {
+    const dm = u.match(/-(\d{4}-\d{2}-\d{2})-\d{2}-\d{2}$/); // ör. irfan-sohbetleri-2026-11-25-22-00
+    if (dm && dm[1] < today) continue; // geçmiş etkinliğin sayfasını hiç indirme
     const h = await get(u, { allow404: true });
     if (!h) continue;
     const sd = h.match(/"startDate"\s*:\s*"(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);

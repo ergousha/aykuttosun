@@ -10,8 +10,9 @@
     set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   };
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function paras(t, cls) { return t.split(/\n{2,}/).map(function (p, i) { return "<p" + (i === 0 && cls ? ' class="' + cls + '"' : "") + ">" + esc(p.trim()) + "</p>"; }).join(""); }
-  function excerpt(t, n) { t = t.replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n).replace(/\s\S*$/, "") + "…" : t; }
+  // Paragraf "## " ile başlıyorsa bölüm başlığıdır (uzun makaleler / PDF'ten aktarılanlar)
+  function paras(t, cls) { return t.split(/\n{2,}/).map(function (p, i) { p = p.trim(); if (/^## /.test(p)) return "<h2>" + esc(p.slice(3)) + "</h2>"; return "<p" + (i === 0 && cls ? ' class="' + cls + '"' : "") + ">" + esc(p) + "</p>"; }).join(""); }
+  function excerpt(t, n) { t = t.replace(/(^|\n)## /g, "$1").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n).replace(/\s\S*$/, "") + "…" : t; }
   function readMin(t) { return Math.max(1, Math.round(t.split(/\s+/).length / 200)); }
 
   var I = {
@@ -293,6 +294,7 @@
       '<button class="icon-btn sm" data-fs="-1" aria-label="Küçült">' + I.minus + '</button><button class="icon-btn sm" data-fs="1" aria-label="Büyüt">' + I.plus + "</button>" +
       '<button class="icon-btn sm" data-share aria-label="Paylaş">' + I.share + "</button></div>" +
       '<div class="prose' + (poem ? " poem" : "") + '">' + body + "</div>" +
+      (a.pdf ? '<p style="margin-top:24px"><a class="btn sm" href="' + a.pdf + '" target="_blank" rel="noopener" download>' + I.dl + "PDF olarak indir</a></p>" : "") +
       '<div class="pager">' + (prev ? '<a href="/' + listRoute.replace(/ler$|lar$/, "") + "/" + prev.slug + '/"><small>← Önceki</small><b>' + esc(prev.title) + "</b></a>" : "") +
       (next ? '<a class="next" href="/' + listRoute.replace(/ler$|lar$/, "") + "/" + next.slug + '/"><small>Sonraki →</small><b>' + esc(next.title) + "</b></a>" : "") +
       "</div></div></article>";

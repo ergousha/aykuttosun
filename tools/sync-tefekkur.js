@@ -7,15 +7,14 @@
     node tools/sync-tefekkur.js --dry      # yalnızca rapor yazar, dosyaya dokunmaz
     node tools/sync-tefekkur.js --daily    # yalnızca ana sayfadaki günün ayeti / hadisi / sözünü eşitler
 
-  Ortam değişkenleri (hepsi isteğe bağlı):
-    GEMINI_API_KEY   Yeni yazı/şiir/denemelerin biçimlendirilmesi için Gemini anahtarı.
-                     Yoksa ya da Gemini metni bozarsa deterministik biçimlendirme kullanılır.
-    GEMINI_MODEL     Varsayılan: gemini-flash-latest
+  Ortam değişkenleri (isteğe bağlı):
     REPORT_FILE      Raporun yazılacağı dosya (varsayılan: işletim sisteminin geçici klasörü)
+
+  Harici bir yapay zekâ servisi kullanılmaz; tüm biçimlendirme deterministiktir.
 
   Ne yapar?
    - Yeni makale / deneme / şiir  -> ilgili listenin sonuna ekler. Liste sayfasındaki bağlantı izlenir;
-                                     bağlantı PDF ise metin PDF'ten çıkarılır (pdftotext gerekir) ve
+                                     bağlantı PDF ise metin PDF'ten çıkarılır (pdftotext / poppler-utils gerekir) ve
                                      sayfada "PDF olarak indir" bağlantısı gösterilir.
    - Yeni söz                     -> "sozler" listesinin sonuna ekler
    - Etkinlikler                  -> yaklaşan etkinlik listesini kaynakla eşitler
@@ -37,11 +36,6 @@ const ROOT = path.resolve(__dirname, "..");
 const DATA = path.join(ROOT, "assets/data.js");
 const DRY = process.argv.includes("--dry");
 const DAILY = process.argv.includes("--daily");
-// Secret/değişken değerindeki boşluk, tırnak ve "models/" öneki temizlenir
-const DEFAULT_MODEL = "gemini-flash-latest";
-let MODEL = (process.env.GEMINI_MODEL || "").trim().replace(/^["']|["']$/g, "").replace(/^models\//, "") || DEFAULT_MODEL;
-const GEMINI_BASE = process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com";
-const KEY = process.env.GEMINI_API_KEY || "";
 const REPORT_FILE = process.env.REPORT_FILE || path.join(os.tmpdir(), "tefekkur-sync-report.md");
 
 // ---------- Yardımcılar ----------
@@ -119,53 +113,6 @@ const HEAD = src.slice(0, src.indexOf("window.TD"));
 const TAIL = src.slice(src.lastIndexOf("}") + 1);
 let dirty = false;
 
-// ---------- Gemini ----------
-async function gemini(prompt, schema, extraParts = []) {
-  const url = `${GEMINI_BASE}/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": KEY },
-    body: JSON.stringify({
-      contents: [{ parts: [...extraParts, { text: prompt }] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 65536, responseMimeType: "application/json", responseSchema: schema }
-    })
-  });
-  if (!r.ok) {
-    let msg = "Gemini HTTP " + r.status + " " + (await r.text()).slice(0, 300);
-    if (r.status === 404 && MODEL !== DEFAULT_MODEL) {
-      report.notes.push(`GEMINI_MODEL ile belirtilen model bulunamadı (HTTP 404); varsayılan "${DEFAULT_MODEL}" kullanıldı. ${await geminiModels()}`);
-      MODEL = DEFAULT_MODEL;
-      return gemini(prompt, schema, extraParts);
-    }
-    if (r.status === 404) msg += " — model bulunamadı (GEMINI_MODEL: " + MODEL.length + " karakter, \"gemini-\" ile " + (MODEL.startsWith("gemini-") ? "başlıyor" : "başlamıyor") + "). " + (await geminiModels());
-    throw new Error(msg);
-  }
-  const j = await r.json();
-  const c = j.candidates && j.candidates[0];
-  const txt = c && c.content && (c.content.parts || []).map((p) => p.text || "").join("");
-  if (!txt) throw new Error("Gemini boş yanıt döndürdü" + (c && c.finishReason ? " (" + c.finishReason + ")" : ""));
-  return JSON.parse(txt);
-}
-
-// 404'te kullanılabilir modelleri raporla (yalnızca generateContent destekleyen flash/pro modelleri)
-let modelsHint = null;
-async function geminiModels() {
-  if (modelsHint !== null) return modelsHint;
-  try {
-    const r = await fetch(`${GEMINI_BASE}/v1beta/models?pageSize=1000`, { headers: { "x-goog-api-key": KEY } });
-    const j = await r.json();
-    const names = (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes("generateContent")).map((m) => m.name.replace(/^models\//, "")).filter((n) => /flash|pro/.test(n));
-    modelsHint = names.length ? "Kullanılabilir modeller: " + names.slice(0, 15).join(", ") : "Model listesi alınamadı (HTTP " + r.status + ").";
-  } catch (e) { modelsHint = "Model listesi alınamadı: " + e.message; }
-  return modelsHint;
-}
-
-const KIND = {
-  makaleler: "makale (dinî-tasavvufî yazı)",
-  denemeler: "deneme (kısa edebî yazı)",
-  siirler: "şiir"
-};
-
 // İmzayı "Aykut TOSUN\nGG.AA.YYYY" biçimine getir (kaynakta "Aykut Tosun / 16.11.2026" gibi gelir).
 function fixSignature(body) {
   const m = body.match(/\s*(?:Aykut\s+Tosun\s*\/?\s*(\d{2}\.\d{2}\.\d{4})|(\d{2}\.\d{2}\.\d{4})\s*\/?\s*Aykut\s+Tosun)\s*$/i);
@@ -191,64 +138,129 @@ function plainFormat(kind, lines) {
   return fixSignature(body);
 }
 
-async function format(kind, lines, listTitle) {
-  const first = lines.find((l) => cleanLine(l));
-  const rawBody = lines.slice(lines.indexOf(first) + 1).map(cleanLine).filter(Boolean).join("\n");
-  const fallback = () => ({ title: listTitle, body: plainFormat(kind, lines), how: "deterministik" });
-  if (!KEY) return fallback();
-  const prompt =
-    `Aşağıda bir Türkçe ${KIND[kind]} metni var. Sitenin veri biçimine göre düzenle.\n` +
-    `KURALLAR:\n- Metni KELİMESİ KELİMESİNE koru; hiçbir kelime ekleme, silme, değiştirme, düzeltme. Noktalama ve özel harfleri (â, î, û, ’) aynen bırak.\n` +
-    (kind === "siirler"
-      ? `- Şiirde her dize bir satır (\\n), kıtalar arası boş satır (\\n\\n) olsun. Kıta sınırını kaynaktaki boş satırlardan ve uyaktan çıkar.\n`
-      : `- Paragrafları boş satırla (\\n\\n) ayır. Kaynakta yapay olarak bölünmüş satırları aynı paragrafta birleştir; ayrı satırda duran kısa vurgu satırlarını, madde işaretlerini ve dua/“Âmin” satırlarını ayrı bırak.\n`) +
-    `- Sondaki imza ve tarihi "Aykut TOSUN\\nGG.AA.YYYY" biçiminde son iki satır olarak bırak (tarih kaynakta varsa).\n` +
-    `- "title": başlığı kaynaktaki yazımla, okunaklı büyük/küçük harfle yaz (örn. "Kalplerin Anahtarı: Şükür"). Liste başlığı: "${listTitle}".\n` +
-    `- "body": yalnızca gövde; başlığı gövdeye koyma.\n\nKAYNAK BAŞLIK: ${first}\nKAYNAK METİN:\n${rawBody}`;
-  const schema = { type: "OBJECT", properties: { title: { type: "STRING" }, body: { type: "STRING" } }, required: ["title", "body"] };
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const o = await gemini(prompt, schema);
-      if (normBody(o.body) === normBody(rawBody)) {
-        return { title: o.title.trim() || listTitle, body: fixSignature(o.body.trim()), how: "Gemini (" + MODEL + ")" };
-      }
-      report.notes.push(`Gemini çıktısı kaynakla birebir örtüşmedi (deneme ${attempt}): "${listTitle}"`);
-    } catch (e) {
-      report.notes.push(`Gemini hatası (deneme ${attempt}) "${listTitle}": ${e.message}`);
-    }
-  }
-  return fallback();
+function format(kind, lines, listTitle) {
+  return { title: listTitle, body: plainFormat(kind, lines), how: "deterministik" };
 }
 
 // ---------- PDF ----------
-const ARABIC = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/;
-// PDF metin katmanında "fi"/"fl" bağ harfleri kopup başka yere düşer, Arapça satırlar bozuk çıkar;
-// karşılaştırmada bunları yok say.
-const normPdf = (s) => normBody(String(s).replace(new RegExp(ARABIC.source, "g"), " ")).replace(/f[il]/g, "").split("tefekkurdeniziirfanokulu").join("");
-function pdfText(buf) {
+// Arap harfli satırlar (âyet/hadis asılları): PDF metin katmanında harf sırası bozuk çıkar, alınmaz.
+// "ﷺ" gibi tek tük işaretler içeren Türkçe satırlar korunur.
+const ARABIC_LETTER = /[؀-ۿݐ-ݿﭐ-ﷹﷻ-﷿ﹰ-﻿]/gu;
+const isArabicLine = (l) => { const ar = (l.match(ARABIC_LETTER) || []).length, all = (l.match(/\p{L}/gu) || []).length; return ar > 0 && ar >= all * 0.5; };
+const BIDI = /[‎‏‪-‮⁦-⁩]/g;
+
+function pdftotext(buf, args) {
   const f = path.join(os.tmpdir(), "tefekkur-" + process.pid + ".pdf");
   fs.writeFileSync(f, buf);
-  try { return execFileSync("pdftotext", ["-enc", "UTF-8", f, "-"], { encoding: "utf8", maxBuffer: 64 << 20 }); }
+  try { return execFileSync("pdftotext", ["-enc", "UTF-8", ...args, f, "-"], { encoding: "utf8", maxBuffer: 64 << 20 }); }
   catch (e) { throw new Error("pdftotext çalıştırılamadı (poppler-utils kurulu mu?): " + e.message); }
   finally { fs.rmSync(f, { force: true }); }
 }
-// Kelime düzeyinde benzerlik: Gemini metni ile PDF metin katmanı arasındaki fark oranı
-function wordDiff(a, b) {
-  const w = (s) => fold(String(s).replace(new RegExp(ARABIC.source, "g"), " ")).replace(/f[il]/g, "").split(/[^a-z0-9]+/).filter((x) => x.length > 1);
-  const A = w(a), B = w(b), m = new Map();
-  for (const x of A) m.set(x, (m.get(x) || 0) + 1);
-  let common = 0;
-  for (const x of B) { const n = m.get(x) || 0; if (n) { common++; m.set(x, n - 1); } }
-  return { diff: A.length + B.length - 2 * common, total: Math.max(A.length, B.length) };
+
+// Bağ harfleri (ff, fi, fl, ffi, ffl): bazı PDF'lerin metin katmanında bu glifler kelimeden kopar ve
+// sayfa sonuna ayrı "kelime" olarak düşer ("Mağfiret" -> "Mağ ret" + "fi", "affetmek" -> "af etmek" + "ff").
+// Kelime konumlarından (pdftotext -bbox) satırdaki normal boşluktan belirgin geniş boşlukları bulur;
+// her boşluğa, sayfada kopmuş bağ harflerinden hangisinin geleceğini sitenin kendi metinlerinde
+// (data.js, risaleler.js, PDF'in kendisi) geçen kelime başlarıyla seçer. Sayfadaki kopuk glif
+// sayısından fazlası asla uygulanmaz; karar verilemeyen boşluklar "geri konamadı" olarak raporlanır.
+const LIGS = ["ffi", "ffl", "ff", "fi", "fl"];
+const LIG_RE = /^(ffi|ffl|ff|fi|fl)$/;
+function buildVocab(...texts) {
+  const pre = new Set();
+  for (const t of texts) for (const w of fold(t).split(/[^a-z0-9]+/)) for (let i = 4; i <= w.length; i++) pre.add(w.slice(0, i));
+  return pre;
 }
-// Deterministik (Gemini yoksa): pdftotext sürümleri boş satırları farklı üretir, bu yüzden
+function repairLigatures(buf, text, vocab) {
+  const html = pdftotext(buf, ["-bbox"]);
+  const fixes = [];
+  let orphans = 0, unresolved = 0;
+  // Birleşmiş kelimenin bağ harfinden sonraki ilk harfe kadar olan başı sözlükte var mı?
+  const known = (left, lig, right) => { const w = fold(left + lig + right).replace(/[^a-z0-9]/g, ""); const n = Math.max(4, fold(left).replace(/[^a-z0-9]/g, "").length + lig.length + 1); return w.length >= n && vocab.has(w.slice(0, n)); };
+  const lastWord = (t) => (t.match(/[\p{L}]+$/u) || [""])[0];
+  const firstWord = (t) => (t.match(/^[\p{L}]+/u) || [""])[0];
+  for (const pg of html.split("<page ").slice(1)) {
+    const words = [...pg.matchAll(/xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)</g)]
+      .map((m) => ({ x0: +m[1], y: Math.round(+m[2] * 10) / 10, x1: +m[3], h: +m[4] - +m[2], t: unent(m[5]) }));
+    const count = new Map();
+    for (const w of words) if (LIG_RE.test(w.t)) count.set(w.t, (count.get(w.t) || 0) + 1);
+    if (!count.size) continue;
+    const pageOrphans = [...count.values()].reduce((x, y) => x + y, 0);
+    orphans += pageOrphans;
+    const lines = new Map();
+    for (const w of words) {
+      if (LIG_RE.test(w.t) || isArabicLine(w.t)) continue;
+      if (!lines.has(w.y)) lines.set(w.y, []);
+      lines.get(w.y).push(w);
+    }
+    const rows = [...lines.keys()].sort((a, b) => a - b).map((y) => lines.get(y).sort((a, b) => a.x0 - b.x0));
+    const lowMedian = (xs, min = 0.5) => { const v = xs.filter((g) => g > min).sort((a, b) => a - b); return v[Math.floor((v.length - 1) / 2)]; };
+    // Boşluğun yazı yüksekliğine oranı sayfada sabittir; kısa satırlarda (başlık, iki-üç kelime) bunu kullan
+    const rowH = (ws) => Math.max(...ws.map((w) => w.h));
+    const spaceRatio = lowMedian(rows.filter((ws) => ws.length >= 4 && rowH(ws) > 2).map((ws) => lowMedian(ws.slice(1).map((w, i) => w.x0 - ws[i].x1)) / rowH(ws)), 0);
+    const cands = [];
+    for (const ws of rows) {
+      const gaps = ws.slice(1).map((w, i) => w.x0 - ws[i].x1);
+      // Satırın normal boşluğu: alt medyan; 3'ten az boşluklu satırda yazı yüksekliğine göre beklenen boşluk
+      const space = gaps.filter((g) => g > 0.5).length >= 3 ? lowMedian(gaps) : spaceRatio * rowH(ws);
+      if (!space) continue;
+      gaps.forEach((g, i) => {
+        const a = ws[i], b = ws[i + 1], r = g / space;
+        if (/^(\d{1,2}\.|\[\d+\])$/.test(a.t)) return; // liste numarası ardından gelen sekme boşluğu
+        if (r >= 1.6 && r < 4.2) cands.push({ a: a.t, b: b.t, r });
+      });
+    }
+    // Her aday için sözlüğün desteklediği seçenekler: kelime içi (a+lig+b) ya da sonraki kelimenin başı (a lig+b)
+    for (const c of cands) {
+      c.opts = [];
+      for (const lig of LIGS) {
+        if (!count.get(lig)) continue;
+        if (known(lastWord(c.a), lig, firstWord(c.b))) c.opts.push({ lig, start: false });
+        // Dar boşluk (~2,2 kat) kelime içidir; kelime başı seçeneği yalnızca geniş boşlukta düşünülür
+        if (c.r >= 2.65 && known("", lig, firstWord(c.b))) c.opts.push({ lig, start: true });
+      }
+    }
+    const take = (c, o) => { c.lig = o.lig; c.start = o.start; count.set(o.lig, count.get(o.lig) - 1); };
+    // 1) Tek ve kesin seçeneği olanlar
+    for (const c of cands) if (c.opts.length === 1 && count.get(c.opts[0].lig) > 0) take(c, c.opts[0]);
+    // 2) Birden çok seçenekli olanlar: boşluk oranına uyan (kelime içi ~2,2; kelime başı ~3,2), kalan glif sayısına göre
+    for (const c of cands) {
+      if (c.lig) continue;
+      const fit = c.opts.filter((o) => count.get(o.lig) > 0 && o.start === (c.r >= 2.65));
+      if (fit.length === 1) take(c, fit[0]);
+    }
+    // 3) Sözlüğün tanımadığı adaylar: sayfada tek tür glif kaldıysa ve sayılar tutuyorsa o glif
+    const left = [...count].filter(([, n]) => n > 0);
+    const rest = cands.filter((c) => !c.lig && c.r < 3.8);
+    if (left.length === 1 && rest.length === left[0][1]) for (const c of rest) take(c, { lig: left[0][0], start: c.r >= 2.65 });
+    const applied = cands.filter((c) => c.lig);
+    unresolved += pageOrphans - applied.length;
+    fixes.push(...applied);
+  }
+  // Düz metinde sırayla uygula (tam kelime eşleşmesi: "ile il" "ile ilmin" içinde bulunmasın)
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let out = "", cur = 0;
+  for (const c of fixes) {
+    const re = new RegExp("(?<![\\p{L}\\p{N}])" + esc(c.a) + " " + esc(c.b) + "(?![\\p{L}\\p{N}])", "gu");
+    re.lastIndex = cur;
+    const m = re.exec(text);
+    if (!m) { unresolved++; continue; }
+    out += text.slice(cur, m.index) + c.a + (c.start ? " " + c.lig : c.lig) + c.b;
+    cur = m.index + m[0].length;
+  }
+  out += text.slice(cur);
+  // Kopmuş bağ harflerinin metindeki yalnız kopyalarını at
+  out = out.replace(/^[ \t]*((ffi|ffl|ff|fi|fl)[ \t]*)+$/gm, "");
+  return { text: out, orphans, fixed: fixes.length, unresolved: Math.max(0, unresolved) };
+}
+
+// PDF'ten deterministik biçimlendirme: pdftotext sürümleri boş satırları farklı üretir, bu yüzden
 // paragraflar satır geometrisinden çıkarılır: tam genişlikte olmayan ve cümle sonu ile biten
 // satır paragrafı bitirir. Başlıklar "## " ile işaretlenir; Arapça satırlar, kopmuş bağ harfleri
 // ("fi"), belge başlığı ve yazar satırı atılır.
 const HEADING = /^(Giriş|Sonuç|Kaynakça|Kaynak Notları|Kaynaklar|Hadis Kaynakları|Klasik Eserler.*|Kur'?[aâ]n[-ıi ]*(Kerîm)?|\d{1,2}\.\s+\p{Lu}[^.]*)$/u;
 function plainPdf(text, title) {
-  let lines = text.replace(/\f/g, "\n").split("\n").map((l) => l.replace(/\s+/g, " ").trim())
-    .filter((l) => l && !ARABIC.test(l) && !/^(f[il]\s*)+$/.test(l));
+  let lines = text.replace(/\f/g, "\n").replace(BIDI, "").split("\n").map((l) => l.replace(/\s+/g, " ").trim())
+    .filter((l) => l && !isArabicLine(l) && !/^((ffi|ffl|ff|fi|fl)\s*)+$/.test(l));
   // Belge başı: başlık satırları ve yazar adı
   const nt = norm(title);
   while (lines.length && nt.includes(norm(lines[0])) && norm(lines[0])) lines.shift();
@@ -285,39 +297,14 @@ function plainPdf(text, title) {
   let body = paras.join("\n\n").replace(/\n\n(Tefekkür Denizi İrfan Okulu\s*\/\s*)/, " $1").replace(/Tefekkür Denizi İrfan Okulu\s*\/\s*(\d{2}\.\d{2}\.\d{4})/, "$1");
   return fixSignature(body);
 }
-async function formatPdf(kind, buf, listTitle, url) {
-  const text = pdfText(buf);
-  if (normPdf(text).length < 200) throw new Error("PDF'ten metin çıkmadı (taranmış görüntü olabilir): " + url);
-  const fallback = () => ({ title: listTitle, body: plainPdf(text, listTitle), how: "deterministik (PDF)" });
-  if (!KEY) return fallback();
-  const prompt =
-    `Ekteki PDF, Aykut Tosun'a ait bir Türkçe ${KIND[kind]}. Metni sitenin veri biçimine dönüştür.\n` +
-    `KURALLAR:\n- Türkçe metni KELİMESİ KELİMESİNE koru; hiçbir kelime ekleme, silme, değiştirme, özetleme. Noktalama ve özel harfleri (â, î, û, ʿ, ’) aynen bırak.\n` +
-    `- Arap harfli metinleri (âyet/hadis asılları) TAMAMEN ÇIKAR; yalnızca Türkçe meal/açıklama kalsın.\n` +
-    `- Satır sonlarında bölünmüş cümleleri birleştir; paragrafları boş satırla (\\n\\n) ayır.\n` +
-    `- Bölüm başlıklarını ("Giriş", "1. …", "Sonuç", "Kaynakça", "Kaynak Notları" gibi) ayrı paragraf olarak "## " ile başlat.\n` +
-    `- Kaynakça ve kaynak notlarında her madde ayrı paragraf olsun.\n` +
-    `- Belgenin başındaki başlığı ve yazar adını gövdeye koyma; alt başlık varsa gövdenin ilk paragrafı olsun.\n` +
-    `- Sondaki imzayı "Aykut TOSUN\\nGG.AA.YYYY" biçiminde son iki satır yap.\n` +
-    `- "title": başlığı okunaklı büyük/küçük harfle yaz (örn. "Allah'ın Rahmetinden Ümit Kesilir mi?"). Liste başlığı: "${listTitle}".`;
-  const schema = { type: "OBJECT", properties: { title: { type: "STRING" }, body: { type: "STRING" } }, required: ["title", "body"] };
-  const pdfPart = { inline_data: { mime_type: "application/pdf", data: buf.toString("base64") } };
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const o = await gemini(prompt, schema, [pdfPart]);
-      const body = fixSignature(o.body.split(/\n{2,}/).filter((p) => !ARABIC.test(p)).join("\n\n").trim());
-      // Kaynak = PDF metin katmanı (başlık ve "Tefekkür Denizi İrfan Okulu" hariç)
-      const srcN = normPdf(text).replace(normPdf(listTitle), ""), outN = normPdf(body);
-      const d = wordDiff(text, (o.title || "") + " " + body + " " + listTitle + " Tefekkür Denizi İrfan Okulu");
-      if (srcN.includes(outN) && outN.length > srcN.length * 0.97 || d.diff <= Math.max(3, d.total * 0.003)) {
-        return { title: (o.title || "").trim() || listTitle, body, how: "Gemini (" + MODEL + ", PDF)", diff: d };
-      }
-      report.notes.push(`Gemini PDF çıktısı kaynakla örtüşmedi (deneme ${attempt}, ${d.diff}/${d.total} kelime farkı): "${listTitle}"`);
-    } catch (e) {
-      report.notes.push(`Gemini hatası (deneme ${attempt}) "${listTitle}": ${e.message}`);
-    }
-  }
-  return fallback();
+function formatPdf(kind, buf, listTitle, url) {
+  const raw = pdftotext(buf, []);
+  if (norm(raw).length < 200) throw new Error("PDF'ten metin çıkmadı (taranmış görüntü olabilir): " + url);
+  // Sözlük: sitenin mevcut metinleri + risaleler + PDF'in kendisi
+  let ris = "";
+  try { ris = fs.readFileSync(path.join(ROOT, "assets/risaleler.js"), "utf8"); } catch (e) { /* yoksa yalnızca data.js */ }
+  const lg = repairLigatures(buf, raw, buildVocab(JSON.stringify(D), ris, raw, listTitle));
+  return { title: listTitle, body: plainPdf(lg.text, listTitle), how: "PDF", lig: lg };
 }
 
 // ---------- 1) Makale / deneme / şiir ----------
@@ -348,23 +335,23 @@ async function syncArticles() {
       let f, pdf = "";
       if (/\.pdf($|\?)/i.test(url)) {
         const buf = await get(url, { binary: true });
-        f = await formatPdf(key, buf, t, url);
+        f = formatPdf(key, buf, t, url);
         pdf = url;
-        report.notes.push(`"${f.title}" kaynakta yalnızca PDF olarak yayımlanmış; metin PDF'ten alındı, sayfaya PDF indirme bağlantısı eklendi. Arap harfli âyet/hadis asılları sitede yer almıyor (PDF'te var).`);
+        report.notes.push(`"${f.title}" kaynakta yalnızca PDF olarak yayımlanmış; metin PDF'ten alındı, sayfaya PDF indirme bağlantısı eklendi. Arap harfli âyet/hadis asılları sitede yer almıyor (PDF'te var). Kopmuş bağ harfi (ff/fi/fl/ffi): ${f.lig.orphans}, geri konan: ${f.lig.fixed}.`);
+        report.review.push(`"${f.title}" PDF'ten aktarıldı; paragraf ve başlık bölünmesini kaynakla karşılaştırın.` + (f.lig.unresolved ? ` ${f.lig.unresolved} bağ harfi (ff/fi/fl/ffi) geri konamadı; "Mağ ret", "af etmek" gibi bölünmüş kelimeleri düzeltin.` : ""));
       } else {
         const lines = pageLines(await get(encodeURI(decodeURI(url))));
         if (lines.filter((l) => cleanLine(l)).length < 3) { report.review.push(`"${t}" sayfası boş görünüyor: ${url}`); continue; }
         // Başlığı farklı yazılmış ama gövdesi zaten bizde olan içerik tekrar eklenmesin
         const pb = normBody(lines.slice(1).join(" "));
         if (have.some((x) => pb.includes(normBody(x.body).slice(0, 120)))) continue;
-        f = await format(key, lines, t);
+        f = format(key, lines, t);
       }
       let slug = slugify(f.title), n = 2;
       while (have.some((x) => x.slug === slug)) slug = slugify(f.title) + "-" + n++;
       have.push(Object.assign({ slug, title: f.title, body: f.body }, pdf ? { pdf } : {}));
       dirty = true;
-      report.added.push(`**${f.title}** → \`${key}\` (\`/${key.replace(/ler$|lar$/, "")}/${slug}/\`) — biçimlendirme: ${f.how}${f.diff ? ` (${f.diff.diff}/${f.diff.total} kelime farkı)` : ""} — kaynak: ${url}`);
-      if (/^deterministik/.test(f.how) && key !== "siirler") report.review.push(`"${f.title}" paragrafları deterministik biçimlendirildi; okunuşunu kontrol edin.` + (pdf ? " PDF metin katmanında \"fi\" bağ harfleri kaybolmuş olabilir (ör. \"Mağ ret\" → \"Mağfiret\")." : ""));
+      report.added.push(`**${f.title}** → \`${key}\` (\`/${key.replace(/ler$|lar$/, "")}/${slug}/\`) — kaynak: ${url}`);
     }
   }
 }

@@ -10,9 +10,27 @@
     set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   };
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  // Paragraf "## " ile başlıyorsa bölüm başlığıdır (uzun makaleler / PDF'ten aktarılanlar)
-  function paras(t, cls) { return t.split(/\n{2,}/).map(function (p, i) { p = p.trim(); if (/^## /.test(p)) return "<h2>" + esc(p.slice(3)) + "</h2>"; return "<p" + (i === 0 && cls ? ' class="' + cls + '"' : "") + ">" + esc(p) + "</p>"; }).join(""); }
-  function excerpt(t, n) { t = t.replace(/(^|\n)## /g, "$1").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n).replace(/\s\S*$/, "") + "…" : t; }
+  // Gövde biçimi (makale/deneme): paragraflar boş satırla ayrılır.
+  //  "## " / "### " ile başlayan paragraf bölüm / alt bölüm başlığıdır;
+  //  çoğunluğu Arap harfli paragraf sağdan sola âyet/hadis metni olarak çizilir;
+  //  satır içinde **kalın** ve *italik* desteklenir; tamamı italik ilk paragraf alt başlıktır.
+  var AR_RE = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/g;
+  function isArabic(p) { var ar = (p.match(AR_RE) || []).length, all = (p.match(/[^\s\d.,;:!?()\[\]"“”'’-]/g) || []).length; return ar > 0 && ar >= all * 0.6; }
+  function inline(p) { return esc(p).replace(/\*\*([^*]+?)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>"); }
+  function paras(t, cls) {
+    var first = true;
+    return t.split(/\n{2,}/).map(function (p, i) {
+      p = p.trim();
+      if (/^### /.test(p)) return "<h3>" + inline(p.slice(4)) + "</h3>";
+      if (/^## /.test(p)) return "<h2>" + inline(p.slice(3)) + "</h2>";
+      if (isArabic(p)) return '<p class="ar" dir="rtl" lang="ar">' + esc(p) + "</p>";
+      if (i === 0 && /^\*[^*].*[^*]\*$/.test(p)) return '<p class="subtitle">' + inline(p) + "</p>";
+      var c = first && cls ? ' class="' + cls + '"' : ""; first = false;
+      return "<p" + c + ">" + inline(p) + "</p>";
+    }).join("");
+  }
+  function plainText(t) { return t.replace(/(^|\n)#{2,3} /g, "$1").replace(/\*\*([^*]+?)\*\*/g, "$1").replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1$2"); }
+  function excerpt(t, n) { t = plainText(t).replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n).replace(/\s\S*$/, "") + "…" : t; }
   function readMin(t) { return Math.max(1, Math.round(t.split(/\s+/).length / 200)); }
 
   var I = {

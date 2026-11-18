@@ -169,6 +169,7 @@ lists.forEach(([lr, ir, lname, kind, arr, ldesc]) => {
           ? { "@type": "CreativeWork", genre: "Şiir", name: a.title, author: AUTHOR, inLanguage: "tr-TR", url: SITE + "/" + ir + "/" + a.slug + "/", text: a.body.slice(0, 500) }
           : { "@type": "Article", headline: a.title, description: desc, author: AUTHOR, publisher: { "@id": PERSON["@id"], "@type": "Person", name: "Aykut Tosun" },
               inLanguage: "tr-TR", image: OG_DEFAULT, wordCount: a.body.split(/\s+/).length, articleSection: lname,
+              ...(a.tarih ? { datePublished: a.tarih } : {}),
               mainEntityOfPage: SITE + "/" + ir + "/" + a.slug + "/" },
         crumbs([[lname, "/" + lr + "/"], [a.title, "/" + ir + "/" + a.slug + "/"]])
       ]

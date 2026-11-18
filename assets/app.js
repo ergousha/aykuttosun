@@ -119,10 +119,12 @@
       (crumbs ? '<div class="crumbs">' + crumbs + "</div>" : "") +
       "<h1>" + title + "</h1>" + (sub ? "<p>" + sub + "</p>" : "") + "</div></section>";
   }
+  var AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+  function trDate(iso) { var p = iso.split("-"); return +p[2] + " " + AYLAR[+p[1] - 1] + " " + p[0]; }
   function rows(list, base) {
     return '<div class="list">' + list.map(function (a, i) {
       return '<a class="row" href="/' + base + "/" + a.slug + '/"><span class="num">' + (i + 1) + '</span><span class="t"><b>' + esc(a.title) +
-        "</b><span>" + esc(excerpt(a.body, 90)) + "</span></span>" + I.chev + "</a>";
+        "</b><span>" + (a.tarih ? '<time datetime="' + a.tarih + '">' + trDate(a.tarih) + "</time> · " : "") + esc(excerpt(a.body, 90)) + "</span></span>" + I.chev + "</a>";
     }).join("") + "</div>";
   }
   function videoBox(s) {
@@ -307,7 +309,7 @@
     if (idx < 0) return P.notfound();
     var a = list[idx], prev = list[idx - 1], next = list[idx + 1];
     var body = poem ? a.body.split(/\n{2,}/).map(function (s) { return "<p>" + esc(s) + "</p>"; }).join("") : paras(a.body, "dropcap");
-    return pageHead(esc(a.title), kind + " · Aykut Tosun" + (poem ? "" : " · " + readMin(a.body) + " dk okuma"), '<a href="/' + listRoute + '/">' + listName + "</a>") +
+    return pageHead(esc(a.title), kind + " · Aykut Tosun" + (a.tarih ? " · " + trDate(a.tarih) : "") + (poem ? "" : " · " + readMin(a.body) + " dk okuma"), '<a href="/' + listRoute + '/">' + listName + "</a>") +
       '<article class="reader"><div class="wrap narrow"><div class="reader-tools">' +
       '<button class="icon-btn sm" data-fs="-1" aria-label="Küçült">' + I.minus + '</button><button class="icon-btn sm" data-fs="1" aria-label="Büyüt">' + I.plus + "</button>" +
       '<button class="icon-btn sm" data-share aria-label="Paylaş">' + I.share + "</button></div>" +

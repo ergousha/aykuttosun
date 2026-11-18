@@ -349,7 +349,14 @@ async function syncArticles() {
       }
       let slug = slugify(f.title), n = 2;
       while (have.some((x) => x.slug === slug)) slug = slugify(f.title) + "-" + n++;
-      have.push(Object.assign({ slug, title: f.title, body: f.body }, pdf ? { pdf } : {}));
+      // Tarih: metindeki son "GG.AA.YYYY" (imza tarihi). Listedeki tüm yazılar tarihliyse en yeni başta olacak şekilde yerleştir.
+      const dm = [...f.body.matchAll(/(\d{2})\.(\d{2})\.(\d{4})/g)].pop();
+      const tarih = dm ? `${dm[3]}-${dm[2]}-${dm[1]}` : "";
+      const item = Object.assign({ slug, title: f.title }, tarih ? { tarih } : {}, { body: f.body }, pdf ? { pdf } : {});
+      if (tarih && have.length && have.every((x) => x.tarih)) {
+        const at = have.findIndex((x) => x.tarih < tarih);
+        have.splice(at < 0 ? have.length : at, 0, item);
+      } else have.push(item);
       dirty = true;
       report.added.push(`**${f.title}** → \`${key}\` (\`/${key.replace(/ler$|lar$/, "")}/${slug}/\`) — kaynak: ${url}`);
     }

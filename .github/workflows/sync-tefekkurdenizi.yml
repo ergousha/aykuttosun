@@ -69,8 +69,6 @@ jobs:
       - name: Kaynak siteyi karşılaştır ve data.js'i güncelle
         id: sync
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || vars.GEMINI_MODEL }}
           REPORT_FILE: ${{ runner.temp }}/sync-report.md
         run: |
           node tools/sync-tefekkur.js | tee "$RUNNER_TEMP/sync.log"

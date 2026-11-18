@@ -38,14 +38,14 @@ Her içeriğin kendi gerçek adresi vardır (ör. `/makale/kalplerin-anahtari-su
 
 Ana sayfadaki **Günün Ayeti, Günün Hadis-i Şerifi ve Günün Sözü** ise kaynak sitede her gün değiştiği için PR beklemeden, doğrulandıktan sonra doğrudan `main`'e işlenir (`node tools/sync-tefekkur.js --daily`; değerler `data.js` içindeki `ayet`, `hadis`, `gununSozu`). Kaynak sayfanın yapısı beklenenden farklıysa çalıştırma hata verir ve hiçbir şey yazmaz. Bu davranışı istemezseniz iş akışındaki ilk adımı silin.
 
-- Yeni yazıların biçimlendirilmesi **Gemini** ile yapılır; çıktı kaynak metinle kelime kelime karşılaştırılır, uyuşmazsa deterministik biçimlendirmeye geçilir ve PR'da "elle inceleme" notu düşülür.
+- Biçimlendirme tamamen **deterministiktir**; harici bir yapay zekâ servisi veya API anahtarı kullanılmaz. Wix sayfalarındaki satır ve kıta yapısı korunur.
+- Listede bağlantısı **PDF** olan yazılarda metin PDF'ten çıkarılır (`pdftotext`, iş akışında kurulur): paragraflar ve bölüm başlıkları (`## `) satır düzeninden, kopmuş bağ harfleri (ff/fi/fl/ffi: "Mağ ret" → "Mağfiret") kelime konumlarından geri kurulur. Arap harfli âyet/hadis asılları alınmaz; makale sayfasında "PDF olarak indir" bağlantısı gösterilir. Geri konamayan bağ harfi olursa PR'da belirtilir.
 - Biyografi ve risale sayısı değişirse otomatik **yazılmaz**, yalnızca PR açıklamasında bildirilir.
 - Hiçbir içerik silinmez (yalnızca tarihi geçen/iptal edilen etkinlikler listeden çıkar).
 
-Kurulum (bir kez):
-1. GitHub → Settings → Secrets and variables → Actions → **Secrets**: `GEMINI_API_KEY` ekleyin (anahtar yoksa eşitleme yine çalışır, yalnızca deterministik biçimlendirme kullanır).
-2. İsteğe bağlı `GEMINI_MODEL` (Secret ya da Variable olarak) (varsayılan `gemini-flash-latest`).
-3. Settings → Actions → General → Workflow permissions: **Read and write** seçin ve **Allow GitHub Actions to create and approve pull requests** kutusunu işaretleyin.
+Kurulum (bir kez): Settings → Actions → General → Workflow permissions: **Read and write** seçin ve **Allow GitHub Actions to create and approve pull requests** kutusunu işaretleyin.
+
+Elle deneme: Actions → "Sync tefekkurdenizi.com" → Run workflow → **dry_run** işaretli çalıştırınca hiçbir şey push edilmez, sonuç artefakt olarak yüklenir.
 
 Yerelde deneme: `node tools/sync-tefekkur.js --dry` (dosyaya yazmaz, rapor basar).
 

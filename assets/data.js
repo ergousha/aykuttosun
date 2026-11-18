@@ -9,13 +9,13 @@ window.TD = {
   "motto": "İlim, kendinden var olana değil, kendini var edene götürür."
  },
  "ayet": {
-  "kaynak": "Bakara Suresi, 104",
-  "metin": "Ey iman edenler! “Râ’inâ (bizi gözet)” demeyin, “unzurnâ (bize bak)” deyin ve dinleyin. Kâfirler için acıklı bir azap vardır."
+  "kaynak": "Bakara Suresi, 105",
+  "metin": "Ne Kitab ehlinden inkâr edenler ve ne de Allah’a ortak koşanlar, Rabbinizden size bir iyilik gelmesini isterler. Oysa Allah, rahmetini dilediğine tahsis eder. Allah, büyük lütuf sahibidir."
  },
  "hadis": {
-  "kaynak": "T1327 Tirmizî, Ahkâm, 3; D3592 Ebû Dâvûd, Kadâ’, (Akdiye), 11",
-  "giris": "Muâz’ın anlattığına göre, Allah Resûlü (sav) onu Yemen’e (vali olarak) gönderirken aralarında şöyle bir diyalog geçmişti:",
-  "metin": "—(Sana bir dava geldiğinde) nasıl hüküm vereceksin?\n—Allah’ın Kitabı’na göre hüküm vereceğim.\n—(O konuda) Allah’ın Kitabı’nda bir hüküm bulamazsan?\n—Resûlullah’ın (sav) sünneti ile (karar vereceğim).\n—Resûlullah’ın (sav) sünnetinde de yoksa?\n—Kendi görüşümle ictihad ederek bir karara varacak ve ona göre hüküm vereceğim.\nBunun üzerine Hz. Peygamber “Resûlü’nün elçisini (Resûlü’nün arzuladığı cevabı vermeye) muvaffak kılan Allah’a hamdolsun.” buyurmuştu."
+  "kaynak": "T2645 Tirmizî, İlim, 1",
+  "giris": "",
+  "metin": "İbn Abbâs’ın naklettiğine göre, Resûlullah (sav) şöyle buyurmuştur: “Allah her kimin iyiliğini dilerse, onu dinde fakih kılar (dinin inceliklerini anlama konusunda ona\nkabiliyet verir).”"
  },
  "bio": [
   "Aykut Tosun, sanatın inceliğini, ilmin ciddiyetini ve irfanın derinliğini aynı çizgide buluşturan; eğitim, müzik ve tasavvuf alanlarında uzun yıllardır çalışmalarını sürdüren eğitimci, neyzen, müzisyen, araştırmacı ve mutasavvıftır.",
@@ -427,5 +427,5 @@ window.TD = {
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
  ],
- "gununSozu": "Allah ile yol tutmayanın Allah'a vardığı görülmemiştir. Allah'a varmak, ancak Allah ile mümkündür."
+ "gununSozu": "Hakikati anlamak isteyen gönül için ilk edep, önce kendi sesinin bütün varlığın sesi olmadığını bilmesidir."
 };

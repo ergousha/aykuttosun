@@ -316,4 +316,7 @@ a.card:hover{transform:translateY(-3px);border-color:var(--gold)}
 .toast-msg{position:fixed;left:50%;bottom:calc(var(--tabh) + 24px);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:90;font-size:.9rem;animation:up .25s}
 @media (display-mode:standalone){.hide-standalone{display:none!important}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-.prose h2{font-family:var(--serif);font-size:1.35rem;line-height:1.3;margin:1.6em 0 .5em}
+.prose h2{font-family:var(--serif);font-size:1.6rem;line-height:1.3;margin:1.7em 0 .5em}
+.prose h3{font-family:var(--serif);font-size:1.15rem;line-height:1.35;margin:1.3em 0 .4em}
+.prose .subtitle{font-family:var(--serif);font-size:1.15em;color:var(--muted);margin-bottom:1.4em}
+.prose .ar{font-family:"Amiri","Noto Naskh Arabic","Scheherazade New","Geeza Pro","Traditional Arabic",serif;font-size:1.55em;line-height:2.1;text-align:center;margin:.6em 0 1em}

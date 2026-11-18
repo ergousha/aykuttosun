@@ -44,7 +44,7 @@ const fold = (s) => String(s).replace(/[İIıÖöÜüŞşÇçĞğÂâÎîÛû]/g
 const norm = (s) => fold(s).replace(/[^a-z0-9]+/g, "");
 // İmza ("Aykut Tosun / 16.11.2026") sırası değişebilir; karşılaştırmada yok sayılır.
 const normBody = (s) => norm(s).split("aykuttosun").join("");
-const slugify = (s) => fold(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const slugify = (s) => fold(s).replace(/['’ʼ`]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const report = { added: [], review: [], notes: [] };
 

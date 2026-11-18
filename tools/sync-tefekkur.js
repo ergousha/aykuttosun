@@ -11,7 +11,7 @@
     GEMINI_API_KEY   Yeni yazı/şiir/denemelerin biçimlendirilmesi için Gemini anahtarı.
                      Yoksa ya da Gemini metni bozarsa deterministik biçimlendirme kullanılır.
     GEMINI_MODEL     Varsayılan: gemini-flash-latest
-    REPORT_FILE      Raporun yazılacağı dosya (varsayılan: sync-report.md)
+    REPORT_FILE      Raporun yazılacağı dosya (varsayılan: işletim sisteminin geçici klasörü)
 
   Ne yapar?
    - Yeni makale / deneme / şiir  -> ilgili listenin sonuna ekler. Liste sayfasındaki bağlantı izlenir;
@@ -42,7 +42,7 @@ const DEFAULT_MODEL = "gemini-flash-latest";
 let MODEL = (process.env.GEMINI_MODEL || "").trim().replace(/^["']|["']$/g, "").replace(/^models\//, "") || DEFAULT_MODEL;
 const GEMINI_BASE = process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com";
 const KEY = process.env.GEMINI_API_KEY || "";
-const REPORT_FILE = process.env.REPORT_FILE || path.join(ROOT, "sync-report.md");
+const REPORT_FILE = process.env.REPORT_FILE || path.join(os.tmpdir(), "tefekkur-sync-report.md");
 
 // ---------- Yardımcılar ----------
 const TR = { İ: "i", I: "i", ı: "i", Ö: "o", ö: "o", Ü: "u", ü: "u", Ş: "s", ş: "s", Ç: "c", ç: "c", Ğ: "g", ğ: "g", Â: "a", â: "a", Î: "i", î: "i", Û: "u", û: "u" };
@@ -241,13 +241,49 @@ function wordDiff(a, b) {
   for (const x of B) { const n = m.get(x) || 0; if (n) { common++; m.set(x, n - 1); } }
   return { diff: A.length + B.length - 2 * common, total: Math.max(A.length, B.length) };
 }
-// Deterministik: boş satırla ayrılmış blokları paragraf yap; Arapça satırları ve başlık/imza bloklarını at
+// Deterministik (Gemini yoksa): pdftotext sürümleri boş satırları farklı üretir, bu yüzden
+// paragraflar satır geometrisinden çıkarılır: tam genişlikte olmayan ve cümle sonu ile biten
+// satır paragrafı bitirir. Başlıklar "## " ile işaretlenir; Arapça satırlar, kopmuş bağ harfleri
+// ("fi"), belge başlığı ve yazar satırı atılır.
+const HEADING = /^(Giriş|Sonuç|Kaynakça|Kaynak Notları|Kaynaklar|Hadis Kaynakları|Klasik Eserler.*|Kur'?[aâ]n[-ıi ]*(Kerîm)?|\d{1,2}\.\s+\p{Lu}[^.]*)$/u;
 function plainPdf(text, title) {
-  const paras = text.replace(/\f/g, "\n\n").split(/\n\s*\n/).map((p) => p.split("\n").filter((l) => !ARABIC.test(l)).map((l) => l.trim()).filter(Boolean).join(" "))
-    .filter((p) => p && !/^f[il]( f[il])*$/.test(p));
+  let lines = text.replace(/\f/g, "\n").split("\n").map((l) => l.replace(/\s+/g, " ").trim())
+    .filter((l) => l && !ARABIC.test(l) && !/^(f[il]\s*)+$/.test(l));
+  // Belge başı: başlık satırları ve yazar adı
   const nt = norm(title);
-  while (paras.length && (nt.includes(norm(paras[0])) || norm(paras[0]) === "aykuttosun")) paras.shift();
-  return paras.join("\n\n");
+  while (lines.length && nt.includes(norm(lines[0])) && norm(lines[0])) lines.shift();
+  lines = lines.filter((l, i) => !(i < 4 && norm(l) === "aykuttosun"));
+  const lens = lines.map((l) => l.length).sort((x, y) => x - y);
+  const full = lens[Math.floor(lens.length * 0.9)] || 90; // tipik tam satır genişliği
+  const paras = [];
+  let cur = [], heading = false;
+  const flush = () => { if (cur.length) paras.push((heading ? "## " : "") + cur.join(" ").replace(/(\p{L})- (\p{Ll})/gu, "$1$2")); cur = []; heading = false; };
+  const NAMED_HEADING = /^(Giriş|Sonuç|Kaynakça|Kaynak Notları|Kaynaklar|Hadis Kaynakları)$/;
+  const inRefs = () => /^## (Kaynak|Hadis Kaynakları|Klasik)/.test(paras.filter((p) => p.startsWith("## ")).pop() || "");
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i], next = lines[i + 1] || "";
+    if (NAMED_HEADING.test(l)) flush();
+    const numbered = /^\d{1,2}\.\s+\p{Lu}/u.test(l);
+    // Başlık: numaralı bölüm başlığı ya da paragraf başında, kısa, noktalamasız ve büyük harfle başlayan satır
+    const shortTitle = !numbered && norm(l) !== "aykuttosun" && !/^Tefekkür Denizi/.test(l) && l.length < full * 0.7 && /^\p{Lu}/u.test(l) && !/[.,;:!?”")\]»…]$/.test(l) && next && !/^\p{Ll}/u.test(next);
+    if (!cur.length && !inRefs() && (NAMED_HEADING.test(l) || (numbered && HEADING.test(l)) || shortTitle) && l.length < full * 0.98) {
+      cur.push(l); heading = true;
+      // başlık sonraki satıra taşmışsa (ör. "… Rahmet, İlim ve" + "Değişim İradesi", "… Yeterli" + "midir?")
+      if (numbered && next.length < 40 && !/[.:;]$/.test(next) && !HEADING.test(next)) cur.push(lines[++i]);
+      flush(); continue;
+    }
+    if (!cur.length && inRefs() && (shortTitle || NAMED_HEADING.test(l))) { cur.push(l); heading = true; flush(); continue; }
+    // kaynakça maddeleri: her "[n]" / "n." ayrı paragraf
+    if (cur.length && inRefs() && /^(\[\d+\]|\d{1,2}\.)(\s|$)/.test(l) && !/^\d{1,2}\.$/.test(cur[cur.length - 1])) flush();
+    // Küçük harfle başlayan "paragraf" bir öncekinin devamıdır (Arapça blok / sayfa sonu kesintisi)
+    if (!cur.length && /^\p{Ll}/u.test(l) && paras.length && !paras[paras.length - 1].startsWith("## ")) { cur.push(paras.pop()); }
+    cur.push(l);
+    if (/^\d{1,2}\.$/.test(l)) continue; // "5." tek başına: madde numarası, devamı sonraki satır
+    if (l.length < full * 0.85 && /[.!?:”")\]»…]$/.test(l)) flush();
+  }
+  flush();
+  let body = paras.join("\n\n").replace(/\n\n(Tefekkür Denizi İrfan Okulu\s*\/\s*)/, " $1").replace(/Tefekkür Denizi İrfan Okulu\s*\/\s*(\d{2}\.\d{2}\.\d{4})/, "$1");
+  return fixSignature(body);
 }
 async function formatPdf(kind, buf, listTitle, url) {
   const text = pdfText(buf);
@@ -328,7 +364,7 @@ async function syncArticles() {
       have.push(Object.assign({ slug, title: f.title, body: f.body }, pdf ? { pdf } : {}));
       dirty = true;
       report.added.push(`**${f.title}** → \`${key}\` (\`/${key.replace(/ler$|lar$/, "")}/${slug}/\`) — biçimlendirme: ${f.how}${f.diff ? ` (${f.diff.diff}/${f.diff.total} kelime farkı)` : ""} — kaynak: ${url}`);
-      if (/^deterministik/.test(f.how) && key !== "siirler") report.review.push(`"${f.title}" paragrafları deterministik biçimlendirildi; okunuşunu kontrol edin.`);
+      if (/^deterministik/.test(f.how) && key !== "siirler") report.review.push(`"${f.title}" paragrafları deterministik biçimlendirildi; okunuşunu kontrol edin.` + (pdf ? " PDF metin katmanında \"fi\" bağ harfleri kaybolmuş olabilir (ör. \"Mağ ret\" → \"Mağfiret\")." : ""));
     }
   }
 }

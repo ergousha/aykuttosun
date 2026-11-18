@@ -37,7 +37,10 @@ const ROOT = path.resolve(__dirname, "..");
 const DATA = path.join(ROOT, "assets/data.js");
 const DRY = process.argv.includes("--dry");
 const DAILY = process.argv.includes("--daily");
-const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+// Secret/değişken değerindeki boşluk, tırnak ve "models/" öneki temizlenir
+const DEFAULT_MODEL = "gemini-flash-latest";
+let MODEL = (process.env.GEMINI_MODEL || "").trim().replace(/^["']|["']$/g, "").replace(/^models\//, "") || DEFAULT_MODEL;
+const GEMINI_BASE = process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com";
 const KEY = process.env.GEMINI_API_KEY || "";
 const REPORT_FILE = process.env.REPORT_FILE || path.join(ROOT, "sync-report.md");
 
@@ -118,7 +121,7 @@ let dirty = false;
 
 // ---------- Gemini ----------
 async function gemini(prompt, schema, extraParts = []) {
-  const url = `${process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com"}/v1beta/models/${MODEL}:generateContent`;
+  const url = `${GEMINI_BASE}/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`;
   const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": KEY },
@@ -127,12 +130,34 @@ async function gemini(prompt, schema, extraParts = []) {
       generationConfig: { temperature: 0, maxOutputTokens: 65536, responseMimeType: "application/json", responseSchema: schema }
     })
   });
-  if (!r.ok) throw new Error("Gemini HTTP " + r.status + " " + (await r.text()).slice(0, 300));
+  if (!r.ok) {
+    let msg = "Gemini HTTP " + r.status + " " + (await r.text()).slice(0, 300);
+    if (r.status === 404 && MODEL !== DEFAULT_MODEL) {
+      report.notes.push(`GEMINI_MODEL ile belirtilen model bulunamadı (HTTP 404); varsayılan "${DEFAULT_MODEL}" kullanıldı. ${await geminiModels()}`);
+      MODEL = DEFAULT_MODEL;
+      return gemini(prompt, schema, extraParts);
+    }
+    if (r.status === 404) msg += " — model bulunamadı (GEMINI_MODEL: " + MODEL.length + " karakter, \"gemini-\" ile " + (MODEL.startsWith("gemini-") ? "başlıyor" : "başlamıyor") + "). " + (await geminiModels());
+    throw new Error(msg);
+  }
   const j = await r.json();
   const c = j.candidates && j.candidates[0];
   const txt = c && c.content && (c.content.parts || []).map((p) => p.text || "").join("");
   if (!txt) throw new Error("Gemini boş yanıt döndürdü" + (c && c.finishReason ? " (" + c.finishReason + ")" : ""));
   return JSON.parse(txt);
+}
+
+// 404'te kullanılabilir modelleri raporla (yalnızca generateContent destekleyen flash/pro modelleri)
+let modelsHint = null;
+async function geminiModels() {
+  if (modelsHint !== null) return modelsHint;
+  try {
+    const r = await fetch(`${GEMINI_BASE}/v1beta/models?pageSize=1000`, { headers: { "x-goog-api-key": KEY } });
+    const j = await r.json();
+    const names = (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes("generateContent")).map((m) => m.name.replace(/^models\//, "")).filter((n) => /flash|pro/.test(n));
+    modelsHint = names.length ? "Kullanılabilir modeller: " + names.slice(0, 15).join(", ") : "Model listesi alınamadı (HTTP " + r.status + ").";
+  } catch (e) { modelsHint = "Model listesi alınamadı: " + e.message; }
+  return modelsHint;
 }
 
 const KIND = {

@@ -9,13 +9,13 @@ window.TD = {
   "motto": "İlim, kendinden var olana değil, kendini var edene götürür."
  },
  "ayet": {
-  "kaynak": "Bakara Suresi, 105",
-  "metin": "Ne Kitab ehlinden inkâr edenler ve ne de Allah’a ortak koşanlar, Rabbinizden size bir iyilik gelmesini isterler. Oysa Allah, rahmetini dilediğine tahsis eder. Allah, büyük lütuf sahibidir."
+  "kaynak": "Bakara Suresi, 106",
+  "metin": "Biz herhangi bir âyetin hükmünü yürürlükten kaldırır veya onu unutturur (ya da ertelersek), yerine daha hayırlısını veya mislini getiririz. Allah’ın gücünün her şeye hakkıyla yettiğini bilmez misin?"
  },
  "hadis": {
-  "kaynak": "T2645 Tirmizî, İlim, 1",
+  "kaynak": "D3660 Ebû Dâvûd, İlim, 10; T2656 Tirmizî, İlim, 7",
   "giris": "",
-  "metin": "İbn Abbâs’ın naklettiğine göre, Resûlullah (sav) şöyle buyurmuştur: “Allah her kimin iyiliğini dilerse, onu dinde fakih kılar (dinin inceliklerini anlama konusunda ona\nkabiliyet verir).”"
+  "metin": "Zeyd b. Sâbit, Allah Resûlü’nü (sav) şöyle derken işitmiştir: “Allah, bizden bir hadis işitip, başkasına aktarana kadar onu belleyen kişinin yüzünü ak etsin. Fıkıh (dini hakkıyla anlamaya yönelik bilgiler) öğrenip onu kendisinden daha kavrayışlı olanlara\naktaran nice kimseler vardır! Fıkıh öğrenen nice kimseler de vardır ki haddizatında\nkendileri fakih (derin kavrayış sahibi) değildir.”"
  },
  "bio": [
   "Aykut Tosun, sanatın inceliğini, ilmin ciddiyetini ve irfanın derinliğini aynı çizgide buluşturan; eğitim, müzik ve tasavvuf alanlarında uzun yıllardır çalışmalarını sürdüren eğitimci, neyzen, müzisyen, araştırmacı ve mutasavvıftır.",
@@ -439,5 +439,5 @@ window.TD = {
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
  ],
- "gununSozu": "Hakikati anlamak isteyen gönül için ilk edep, önce kendi sesinin bütün varlığın sesi olmadığını bilmesidir."
+ "gununSozu": "İrfanî ahlâk bilginin davranışa, muhabbetin sorumluluğa ve tefekkürün hizmete dönüşmesini gerektirir."
 };

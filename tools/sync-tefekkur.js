@@ -91,13 +91,16 @@ const unent = (s) => s.replace(/&(#x?[0-9a-f]+|[a-z][a-z0-9]*);/gi, (m, g) => {
   return r;
 });
 // Wix sayfasının görünen metni; satır = blok
-function pageLines(html) {
+// keepHead: "Giriş Yapınız" öncesini (menü + başlık alanı) atma — ana sayfada günün ayeti oraya taşındı.
+function pageLines(html, keepHead = false) {
   html = html.replace(/<(script|style|svg|noscript)[\s\S]*?<\/\1>/gi, "").replace(/<\/?(br|p|h\d|div|li|span|a|section|article|header|footer)\b[^>]*>/gi, "\n");
   const t = unent(html.replace(/<[^>]+>/g, ""));
   const lines = t.split("\n").map((l) => l.replace(/[ \t\u00a0]+/g, " ").trim());
   const i = lines.findIndex((l) => l === "Giriş Yapınız");
-  let body = i >= 0 ? lines.slice(i + 1) : lines;
-  const end = body.findIndex((l) => l === "Tefekkür Denizi İrfan Okulu" || l.startsWith("© "));
+  let body = i >= 0 && !keepHead ? lines.slice(i + 1) : lines;
+  // Başlıktaki logo metni de "Tefekkür Denizi İrfan Okulu"; alt bilgiyi "Giriş Yapınız"dan sonra ara.
+  const from = keepHead ? Math.max(i, 0) : -1;
+  const end = body.findIndex((l, k) => k > from && (l === "Tefekkür Denizi İrfan Okulu" || l.startsWith("© ")));
   if (end >= 0) body = body.slice(0, end);
   return body; // boş ve \u200b (Wix'in kıta ayırıcısı) satırları korunur
 }
@@ -446,19 +449,30 @@ async function checkReadOnly() {
 
 // ---------- 5) Günlük: ana sayfadaki ayet / hadis / söz ----------
 async function syncGunluk() {
-  const lines = pageLines(await get(BASE + "/")).map(cleanLine).filter(Boolean);
+  // Bölümlerin sırası değişebilir; iki düzen de desteklenir:
+  //  eski: Günün Ayeti → Günün Hadisi → "Aykut Tosun'dan" başlıklı söz
+  //  yeni (2026-11): Günün Ayeti (başlık alanında, "Giriş Yapınız" öncesi) → başlıksız söz + "- Aykut TOSUN" → Günün Hadisi
+  const lines = pageLines(await get(BASE + "/"), true).map(cleanLine).filter(Boolean);
+  const isSig = (l) => /^[-–—]\s*Aykut\s+Tosun$/i.test(l);
+  // Bir bölümü bitiren satırlar: diğer bölüm başlıkları, logo metni ("Aykut Tosun"), giriş düğmesi, sohbet listesi, imza
+  const STOP = /^(Günün Ayeti:?|Günün Hadis.*|Aykut Tosun'dan|Aykut Tosun|Giriş Yapınız|En Güncel Sohbetimiz)$/i;
+  const block = (k) => { const out = []; for (; k < lines.length && !STOP.test(lines[k]) && !isSig(lines[k]); k++) out.push(lines[k]); return out; };
   const iA = lines.findIndex((l) => /^Günün Ayeti:?$/i.test(l));
   const iH = lines.findIndex((l) => /^Günün Hadis/i.test(l));
   const iS = lines.findIndex((l) => /^Aykut Tosun'dan$/i.test(l));
-  if (iA < 0 || iH < iA || iS < iH) throw new Error("Ana sayfada günün ayeti/hadisi/sözü bölümleri bulunamadı (site yapısı değişmiş olabilir)");
+  const iSig = lines.findIndex(isSig);
+  if (iA < 0 || iH < 0 || (iS < 0 && iSig < 0)) throw new Error("Ana sayfada günün ayeti/hadisi/sözü bölümleri bulunamadı (site yapısı değişmiş olabilir)");
   const fail = (m) => { throw new Error("Günlük içerik doğrulanamadı: " + m); };
 
-  const a = lines.slice(iA + 1, iH);
+  const a = block(iA + 1);
   if (a.length < 2) fail("ayet");
   const ayet = { kaynak: a[0], metin: a.slice(1).join(" ").replace(/\s+/g, " ") };
+  // Site metnin başına ayet numarasını ekler ("106-) Biz …"); kaynakta zaten var, önekini at.
+  const no = (ayet.kaynak.match(/(\d+)\s*$/) || [])[1];
+  if (no) ayet.metin = ayet.metin.replace(new RegExp("^" + no + "\\s*-?\\)\\s*"), "");
   if (!/\d/.test(ayet.kaynak) || ayet.kaynak.length > 80 || ayet.metin.length < 15 || ayet.metin.length > 1500) fail("ayet biçimi");
 
-  let h = lines.slice(iH + 1, iS);
+  let h = block(iH + 1);
   let kaynak = "";
   const last = h[h.length - 1];
   if (last && /^\(.*\)$/.test(last)) { kaynak = last.slice(1, -1).trim(); h = h.slice(0, -1); }
@@ -468,8 +482,13 @@ async function syncGunluk() {
   const hadis = { kaynak, giris, metin };
   if (metin.length < 20 || metin.length > 3000 || kaynak.length > 200) fail("hadis biçimi");
 
-  const sl = lines.slice(iS + 1);
-  while (sl.length && /^[-–—]\s*Aykut\s+Tosun$/i.test(sl[sl.length - 1])) sl.pop();
+  let sl;
+  if (iS >= 0) sl = block(iS + 1);
+  else {
+    // Başlıksız söz: imzanın üstündeki satırlar, bir bölüm sınırına ya da hadis kaynağına "(…)" kadar
+    sl = [];
+    for (let k = iSig - 1; k >= 0 && !STOP.test(lines[k]) && !isSig(lines[k]) && !/^\(.*\)$/.test(lines[k]); k--) sl.unshift(lines[k]);
+  }
   const soz = sl.join(" ").replace(/^["“”]+|["“”]+$/g, "").replace(/\s+/g, " ").trim();
   if (soz.length < 10 || soz.length > 600) fail("söz biçimi");
 

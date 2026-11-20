@@ -439,5 +439,5 @@ window.TD = {
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
  ],
- "gununSozu": "İnsanı hakikate götürmeyen ilim, ancak bir zihin yüküdür."
+ "gununSozu": "Aykut TOSUN'dan: \"İnsanı hakikate götürmeyen ilim, ancak bir zihin yüküdür."
 };

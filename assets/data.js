@@ -9,13 +9,13 @@ window.TD = {
   "motto": "İlim, kendinden var olana değil, kendini var edene götürür."
  },
  "ayet": {
-  "kaynak": "Bakara Suresi, 106",
-  "metin": "Biz herhangi bir âyetin hükmünü yürürlükten kaldırır veya onu unutturur (ya da ertelersek), yerine daha hayırlısını veya mislini getiririz. Allah’ın gücünün her şeye hakkıyla yettiğini bilmez misin?"
+  "kaynak": "Bakara Suresi, 107",
+  "metin": "Bilmez misin ki, göklerin ve yerin hükümranlığı Allah’ındır. Sizin için Allah’tan başka ne bir dost, ne de bir yardımcı vardır."
  },
  "hadis": {
-  "kaynak": "D3660 Ebû Dâvûd, İlim, 10; T2656 Tirmizî, İlim, 7",
+  "kaynak": "M4487 Müslim, Akdiye, 15",
   "giris": "",
-  "metin": "Zeyd b. Sâbit, Allah Resûlü’nü (sav) şöyle derken işitmiştir: “Allah, bizden bir hadis işitip, başkasına aktarana kadar onu belleyen kişinin yüzünü ak etsin. Fıkıh (dini hakkıyla anlamaya yönelik bilgiler) öğrenip onu kendisinden daha kavrayışlı olanlara\naktaran nice kimseler vardır! Fıkıh öğrenen nice kimseler de vardır ki haddizatında\nkendileri fakih (derin kavrayış sahibi) değildir.”"
+  "metin": "Amr b. el-Âs, Allah Resûlü’nü (sav) şöyle derken işitmiştir: “Hâkim, hüküm verirken ictihad eder (gücü nispetinde çaba sarf eder) de sonunda isabetli karar verirse, iki sevap kazanır. Eğer ictihad eder de sonunda hata ederse, bir sevap kazanır.”"
  },
  "bio": [
   "Aykut Tosun, sanatın inceliğini, ilmin ciddiyetini ve irfanın derinliğini aynı çizgide buluşturan; eğitim, müzik ve tasavvuf alanlarında uzun yıllardır çalışmalarını sürdüren eğitimci, neyzen, müzisyen, araştırmacı ve mutasavvıftır.",
@@ -439,5 +439,5 @@ window.TD = {
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
  ],
- "gununSozu": "İrfanî ahlâk bilginin davranışa, muhabbetin sorumluluğa ve tefekkürün hizmete dönüşmesini gerektirir."
+ "gununSozu": "İnsanı hakikate götürmeyen ilim, ancak bir zihin yüküdür."
 };

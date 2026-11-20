@@ -448,11 +448,11 @@ async function checkReadOnly() {
 }
 
 // ---------- 5) Günlük: ana sayfadaki ayet / hadis / söz ----------
-async function syncGunluk() {
-  // Bölümlerin sırası değişebilir; iki düzen de desteklenir:
-  //  eski: Günün Ayeti → Günün Hadisi → "Aykut Tosun'dan" başlıklı söz
-  //  yeni (2026-11): Günün Ayeti (başlık alanında, "Giriş Yapınız" öncesi) → başlıksız söz + "- Aykut TOSUN" → Günün Hadisi
-  const lines = pageLines(await get(BASE + "/"), true).map(cleanLine).filter(Boolean);
+// Ana sayfa satırlarından { ayet, hadis, soz } çıkarır. Bölümlerin sırası değişebilir; görülen düzenler:
+//  eski:          Günün Ayeti → Günün Hadisi → "Aykut Tosun'dan" başlıklı söz
+//  2026-11-19:    Günün Ayeti (başlık alanında, "Giriş Yapınız" öncesi) → başlıksız söz + "- Aykut TOSUN" → Günün Hadisi
+//  2026-11-20:    Günün Ayeti (başlık alanında) → Günün Hadisi → başlıksız söz + "- Aykut TOSUN"
+function parseGunluk(lines) {
   const isSig = (l) => /^[-–—]\s*Aykut\s+Tosun$/i.test(l);
   // Bir bölümü bitiren satırlar: diğer bölüm başlıkları, logo metni ("Aykut Tosun"), giriş düğmesi, sohbet listesi, imza
   const STOP = /^(Günün Ayeti:?|Günün Hadis.*|Aykut Tosun'dan|Aykut Tosun|Giriş Yapınız|En Güncel Sohbetimiz)$/i;
@@ -472,12 +472,13 @@ async function syncGunluk() {
   if (no) ayet.metin = ayet.metin.replace(new RegExp("^" + no + "\\s*-?\\)\\s*"), "");
   if (!/\d/.test(ayet.kaynak) || ayet.kaynak.length > 80 || ayet.metin.length < 15 || ayet.metin.length > 1500) fail("ayet biçimi");
 
+  // Hadis, ilk "(…)" kaynak satırında biter; ardından başlıksız söz gelebilir.
   let h = block(iH + 1);
-  let kaynak = "";
-  const last = h[h.length - 1];
-  if (last && /^\(.*\)$/.test(last)) { kaynak = last.slice(1, -1).trim(); h = h.slice(0, -1); }
-  if (!kaynak || h.length < 2) fail("hadis kaynağı/metni");
-  const giris = /:$/.test(h[0]) ? h[0] : "";
+  const iK = h.findIndex((l) => /^\(.*\)$/.test(l));
+  if (iK < 1) fail("hadis kaynağı/metni");
+  const kaynak = h[iK].slice(1, -1).trim();
+  h = h.slice(0, iK);
+  const giris = h.length > 1 && /:$/.test(h[0]) ? h[0] : "";
   const metin = (giris ? h.slice(1) : h).join("\n");
   const hadis = { kaynak, giris, metin };
   if (metin.length < 20 || metin.length > 3000 || kaynak.length > 200) fail("hadis biçimi");
@@ -491,7 +492,11 @@ async function syncGunluk() {
   }
   const soz = sl.join(" ").replace(/^["“”]+|["“”]+$/g, "").replace(/\s+/g, " ").trim();
   if (soz.length < 10 || soz.length > 600) fail("söz biçimi");
+  return { ayet, hadis, soz };
+}
 
+async function syncGunluk() {
+  const { ayet, hadis, soz } = parseGunluk(pageLines(await get(BASE + "/"), true).map(cleanLine).filter(Boolean));
   const changes = [];
   if (JSON.stringify(D.ayet) !== JSON.stringify(ayet)) { D.ayet = ayet; changes.push(`Günün ayeti: ${ayet.kaynak}`); }
   if (JSON.stringify(D.hadis) !== JSON.stringify(hadis)) { D.hadis = hadis; changes.push(`Günün hadisi: ${hadis.kaynak}`); }

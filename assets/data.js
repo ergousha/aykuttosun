@@ -279,43 +279,11 @@ window.TD = {
  ],
  "etkinlikler": [
   {
-   "tarih": "2026-11-18",
-   "saat": "22:00",
-   "bitis": "23:30",
-   "slug": "irfan",
-   "title": "İrfan Sohbetleri",
-   "yer": "YouTube"
-  },
-  {
-   "tarih": "2026-11-18",
-   "saat": "22:00",
-   "bitis": "23:00",
-   "slug": "mesnevi",
-   "title": "Mesnevî-i Şerîf Sohbetleri",
-   "yer": "YouTube"
-  },
-  {
-   "tarih": "2026-11-20",
-   "saat": "22:00",
-   "bitis": "23:30",
-   "slug": "kelam-i-kadim",
-   "title": "Kelâm-ı Kadîm Dersi",
-   "yer": "Zoom"
-  },
-  {
    "tarih": "2026-11-25",
    "saat": "22:00",
    "bitis": "23:30",
    "slug": "irfan",
    "title": "İrfan Sohbetleri",
-   "yer": "YouTube"
-  },
-  {
-   "tarih": "2026-11-25",
-   "saat": "22:00",
-   "bitis": "23:30",
-   "slug": "mesnevi",
-   "title": "Mesnevî-i Şerîf Sohbetleri",
    "yer": "YouTube"
   },
   {

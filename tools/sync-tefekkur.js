@@ -452,14 +452,15 @@ async function checkReadOnly() {
 //  eski:          Günün Ayeti → Günün Hadisi → "Aykut Tosun'dan" başlıklı söz
 //  2026-11-19:    Günün Ayeti (başlık alanında, "Giriş Yapınız" öncesi) → başlıksız söz + "- Aykut TOSUN" → Günün Hadisi
 //  2026-11-20:    Günün Ayeti (başlık alanında) → Günün Hadisi → başlıksız söz + "- Aykut TOSUN"
+//  2026-11-22:    ayet kaynağı numarasız ("Bakara Suresi", numara metnin "110-)" önekinde); söz "Aykut TOSUN'dan:" başlıklı + imzalı
 function parseGunluk(lines) {
   const isSig = (l) => /^[-–—]\s*Aykut\s+Tosun$/i.test(l);
   // Bir bölümü bitiren satırlar: diğer bölüm başlıkları, logo metni ("Aykut Tosun"), giriş düğmesi, sohbet listesi, imza
-  const STOP = /^(Günün Ayeti:?|Günün Hadis.*|Aykut Tosun'dan|Aykut Tosun|Giriş Yapınız|En Güncel Sohbetimiz)$/i;
+  const STOP = /^(Günün Ayeti:?|Günün Hadis.*|Aykut Tosun'dan:?|Aykut Tosun|Giriş Yapınız|En Güncel Sohbetimiz)$/i;
   const block = (k) => { const out = []; for (; k < lines.length && !STOP.test(lines[k]) && !isSig(lines[k]); k++) out.push(lines[k]); return out; };
   const iA = lines.findIndex((l) => /^Günün Ayeti:?$/i.test(l));
   const iH = lines.findIndex((l) => /^Günün Hadis/i.test(l));
-  const iS = lines.findIndex((l) => /^Aykut Tosun'dan$/i.test(l));
+  const iS = lines.findIndex((l) => /^Aykut Tosun'dan:?$/i.test(l));
   const iSig = lines.findIndex(isSig);
   if (iA < 0 || iH < 0 || (iS < 0 && iSig < 0)) throw new Error("Ana sayfada günün ayeti/hadisi/sözü bölümleri bulunamadı (site yapısı değişmiş olabilir)");
   const fail = (m) => { throw new Error("Günlük içerik doğrulanamadı: " + m); };
@@ -467,9 +468,14 @@ function parseGunluk(lines) {
   const a = block(iA + 1);
   if (a.length < 2) fail("ayet");
   const ayet = { kaynak: a[0], metin: a.slice(1).join(" ").replace(/\s+/g, " ") };
-  // Site metnin başına ayet numarasını ekler ("106-) Biz …"); kaynakta zaten var, önekini at.
+  // Site metnin başına ayet numarasını ekler ("106-) Biz …"). Kaynak satırında numara varsa
+  // ("Bakara Suresi, 106") yalnızca öneki at; yoksa ("Bakara Suresi", 2026-11-22) numarayı önekten alıp kaynağa ekle.
   const no = (ayet.kaynak.match(/(\d+)\s*$/) || [])[1];
   if (no) ayet.metin = ayet.metin.replace(new RegExp("^" + no + "\\s*-?\\)\\s*"), "");
+  else {
+    const pm = ayet.metin.match(/^(\d+(?:\s*-\s*\d+)?)\s*-?\)\s*/);
+    if (pm) { ayet.kaynak = ayet.kaynak.replace(/[\s,]+$/, "") + ", " + pm[1].replace(/\s+/g, ""); ayet.metin = ayet.metin.slice(pm[0].length); }
+  }
   if (!/\d/.test(ayet.kaynak) || ayet.kaynak.length > 80 || ayet.metin.length < 15 || ayet.metin.length > 1500) fail("ayet biçimi");
 
   // Hadis, ilk "(…)" kaynak satırında biter; ardından başlıksız söz gelebilir.

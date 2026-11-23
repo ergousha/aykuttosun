@@ -9,13 +9,13 @@ window.TD = {
   "motto": "İlim, kendinden var olana değil, kendini var edene götürür."
  },
  "ayet": {
-  "kaynak": "Bakara Suresi, 107",
-  "metin": "Bilmez misin ki, göklerin ve yerin hükümranlığı Allah’ındır. Sizin için Allah’tan başka ne bir dost, ne de bir yardımcı vardır."
+  "kaynak": "Bakara Suresi, 110",
+  "metin": "Namazı dosdoğru kılın, zekâtı verin. Kendiniz için her ne iyilik işlemiş olursanız, Allah katında onu bulursunuz. Şüphesiz Allah bütün yaptıklarınızı görür."
  },
  "hadis": {
-  "kaynak": "M4487 Müslim, Akdiye, 15",
-  "giris": "",
-  "metin": "Amr b. el-Âs, Allah Resûlü’nü (sav) şöyle derken işitmiştir: “Hâkim, hüküm verirken ictihad eder (gücü nispetinde çaba sarf eder) de sonunda isabetli karar verirse, iki sevap kazanır. Eğer ictihad eder de sonunda hata ederse, bir sevap kazanır.”"
+  "kaynak": "T2649 Tirmizî, İlim, 3; D3658 Ebû Dâvûd, İlim, 9",
+  "giris": "Ebû Hüreyre’den rivayet edildiğine göre, Resûlullah (sav) şöyle buyurmuştur:",
+  "metin": "\"Her kim, bildiği bir konuda kendisine danışılır da onu gizlerse kıyamet günü ağzına ateşten bir gem vurulur.\""
  },
  "bio": [
   "Aykut Tosun, sanatın inceliğini, ilmin ciddiyetini ve irfanın derinliğini aynı çizgide buluşturan; eğitim, müzik ve tasavvuf alanlarında uzun yıllardır çalışmalarını sürdüren eğitimci, neyzen, müzisyen, araştırmacı ve mutasavvıftır.",
@@ -407,5 +407,5 @@ window.TD = {
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
  ],
- "gununSozu": "Aykut TOSUN'dan: \"İnsanı hakikate götürmeyen ilim, ancak bir zihin yüküdür."
+ "gununSozu": "İnsan, birledikçe hakikate varabilir. Bütün sır, o birden aşikâr olur."
 };

@@ -9,13 +9,13 @@ window.TD = {
   "motto": "İlim, kendinden var olana değil, kendini var edene götürür."
  },
  "ayet": {
-  "kaynak": "Bakara Suresi, 110",
-  "metin": "Namazı dosdoğru kılın, zekâtı verin. Kendiniz için her ne iyilik işlemiş olursanız, Allah katında onu bulursunuz. Şüphesiz Allah bütün yaptıklarınızı görür."
+  "kaynak": "Bakara Suresi, 111",
+  "metin": "Bir de; “Yahudi ve Hıristiyanlardan başkası Cennet’e girmeyecek” dediler. Bu, onların kuruntuları! De ki: “Eğer doğru söyleyenler iseniz (iddianızı ispat edecek) delilinizi getirin.”"
  },
  "hadis": {
-  "kaynak": "T2649 Tirmizî, İlim, 3; D3658 Ebû Dâvûd, İlim, 9",
+  "kaynak": "D3664 Ebû Dâvûd, İlim, 12; HM8438 İbn Hanbel, II, 338",
   "giris": "Ebû Hüreyre’den rivayet edildiğine göre, Resûlullah (sav) şöyle buyurmuştur:",
-  "metin": "\"Her kim, bildiği bir konuda kendisine danışılır da onu gizlerse kıyamet günü ağzına ateşten bir gem vurulur.\""
+  "metin": "“Allah’ın rızası bir kimse kıyamet günü cennetin kokusunu (dahi)\nalamayacaktır.”"
  },
  "bio": [
   "Aykut Tosun, sanatın inceliğini, ilmin ciddiyetini ve irfanın derinliğini aynı çizgide buluşturan; eğitim, müzik ve tasavvuf alanlarında uzun yıllardır çalışmalarını sürdüren eğitimci, neyzen, müzisyen, araştırmacı ve mutasavvıftır.",
@@ -407,5 +407,5 @@ window.TD = {
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
  ],
- "gununSozu": "İnsan, birledikçe hakikate varabilir. Bütün sır, o birden aşikâr olur."
+ "gununSozu": "Âlemden âleme seyyah olan, her âlemi seyahati sırasında o âlemin Rabbi ile tanışan ve Rabbin \"bir\" olduğunu gören insanda \"Elhamdülillahi Rabbilalemin\" hakikati tecelli eder."
 };

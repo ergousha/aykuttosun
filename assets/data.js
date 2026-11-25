@@ -9,13 +9,13 @@ window.TD = {
   "motto": "İlim, kendinden var olana değil, kendini var edene götürür."
  },
  "ayet": {
-  "kaynak": "Bakara Suresi, 111",
-  "metin": "Bir de; “Yahudi ve Hıristiyanlardan başkası Cennet’e girmeyecek” dediler. Bu, onların kuruntuları! De ki: “Eğer doğru söyleyenler iseniz (iddianızı ispat edecek) delilinizi getirin.”"
+  "kaynak": "Bakara Suresi, 112",
+  "metin": "Hayır, öyle değil! Kim iyi ve yararlı işleri en güzel şekilde yaparak özünü Allah’a teslim ederse, onun mükâfatı Rabbinin katındadır. Artık onlara korku yoktur, onlar üzülmeyeceklerdir"
  },
  "hadis": {
-  "kaynak": "D3664 Ebû Dâvûd, İlim, 12; HM8438 İbn Hanbel, II, 338",
-  "giris": "Ebû Hüreyre’den rivayet edildiğine göre, Resûlullah (sav) şöyle buyurmuştur:",
-  "metin": "“Allah’ın rızası bir kimse kıyamet günü cennetin kokusunu (dahi)\nalamayacaktır.”"
+  "kaynak": "B1409 Buhârî, Zekât, 5; M1896 Müslim, Müsâfirîn, 268",
+  "giris": "",
+  "metin": "İbn Mes’ûd’un (ra) işitip naklettiğine göre, Hz. Peygamber (sav) şöyle\nbuyurmuştur:\n“Ancak iki kişiye haset (gıpta) edilir. Bunlar, Allah’ın kendisine mal verdiği ve onu hak yolunda harcayan kimse ile Allah’ın kendisine (ilim ve) hikmet verdiği ve ona göre karar verip, onu başkalarına da öğreten kimsedir.”"
  },
  "bio": [
   "Aykut Tosun, sanatın inceliğini, ilmin ciddiyetini ve irfanın derinliğini aynı çizgide buluşturan; eğitim, müzik ve tasavvuf alanlarında uzun yıllardır çalışmalarını sürdüren eğitimci, neyzen, müzisyen, araştırmacı ve mutasavvıftır.",
@@ -407,5 +407,5 @@ window.TD = {
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
  ],
- "gununSozu": "Âlemden âleme seyyah olan, her âlemi seyahati sırasında o âlemin Rabbi ile tanışan ve Rabbin \"bir\" olduğunu gören insanda \"Elhamdülillahi Rabbilalemin\" hakikati tecelli eder."
+ "gununSozu": "Dervişler deniz fenerleri gibidir. Karanlık bir deryada yol arayanlara yol gösterirler."
 };

@@ -9,13 +9,13 @@ window.TD = {
   "motto": "İlim, kendinden var olana değil, kendini var edene götürür."
  },
  "ayet": {
-  "kaynak": "Bakara Suresi, 112",
-  "metin": "Hayır, öyle değil! Kim iyi ve yararlı işleri en güzel şekilde yaparak özünü Allah’a teslim ederse, onun mükâfatı Rabbinin katındadır. Artık onlara korku yoktur, onlar üzülmeyeceklerdir"
+  "kaynak": "Bakara Suresi, 113",
+  "metin": "Yahudiler, “Hıristiyanlar bir temel üzerinde değiller” dediler. Hıristiyanlar da, “Yahudiler bir temel üzerinde değiller” dediler. Oysa hepsi Kitab’ı okuyorlar. (Kitab’ı) bilmeyenler de tıpkı bunların söyledikleri gibi demişti. Artık onların aralarında uyuşamadıkları davada, kıyamet gününde hükmü Allah verecektir."
  },
  "hadis": {
-  "kaynak": "B1409 Buhârî, Zekât, 5; M1896 Müslim, Müsâfirîn, 268",
-  "giris": "",
-  "metin": "İbn Mes’ûd’un (ra) işitip naklettiğine göre, Hz. Peygamber (sav) şöyle\nbuyurmuştur:\n“Ancak iki kişiye haset (gıpta) edilir. Bunlar, Allah’ın kendisine mal verdiği ve onu hak yolunda harcayan kimse ile Allah’ın kendisine (ilim ve) hikmet verdiği ve ona göre karar verip, onu başkalarına da öğreten kimsedir.”"
+  "kaynak": "T3599 Tirmizî, Deavât 128; İM251 İbn Mâce, Sünnet, 23",
+  "giris": "Ebû Hüreyre’den (ra) rivayet edildiğine göre, Resûlullah (sav) şöyle buyurmuştur:",
+  "metin": "“Allah’ım, bana öğrettiklerinle beni faydalandır. Bana fayda verecek ilmi bana öğret ve ilmimi artır...”"
  },
  "bio": [
   "Aykut Tosun, sanatın inceliğini, ilmin ciddiyetini ve irfanın derinliğini aynı çizgide buluşturan; eğitim, müzik ve tasavvuf alanlarında uzun yıllardır çalışmalarını sürdüren eğitimci, neyzen, müzisyen, araştırmacı ve mutasavvıftır.",
@@ -407,5 +407,5 @@ window.TD = {
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
  ],
- "gununSozu": "Dervişler deniz fenerleri gibidir. Karanlık bir deryada yol arayanlara yol gösterirler."
+ "gununSozu": "İnsan öğrendikçe haddini, yaşadıkça acziyetini, tefekkür ettikçe kendisine bahşedilen nimetlerin kıymetini daha iyi kavrar."
 };

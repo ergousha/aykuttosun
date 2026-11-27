@@ -9,13 +9,13 @@ window.TD = {
   "motto": "İlim, kendinden var olana değil, kendini var edene götürür."
  },
  "ayet": {
-  "kaynak": "Bakara Suresi, 113",
-  "metin": "Yahudiler, “Hıristiyanlar bir temel üzerinde değiller” dediler. Hıristiyanlar da, “Yahudiler bir temel üzerinde değiller” dediler. Oysa hepsi Kitab’ı okuyorlar. (Kitab’ı) bilmeyenler de tıpkı bunların söyledikleri gibi demişti. Artık onların aralarında uyuşamadıkları davada, kıyamet gününde hükmü Allah verecektir."
+  "kaynak": "Bakara Suresi, 114",
+  "metin": "Allah’ın mescitlerinde O'nun adının anılmasını yasak eden ve onların yıkılması için çalışandan kim daha zalimdir. Böyleleri oralara (eğer girerlerse) ancak korka korka girebilmelidirler. Bunlar için dünyada rezillik, ahirette de büyük bir azap vardır."
  },
  "hadis": {
-  "kaynak": "T3599 Tirmizî, Deavât 128; İM251 İbn Mâce, Sünnet, 23",
-  "giris": "Ebû Hüreyre’den (ra) rivayet edildiğine göre, Resûlullah (sav) şöyle buyurmuştur:",
-  "metin": "“Allah’ım, bana öğrettiklerinle beni faydalandır. Bana fayda verecek ilmi bana öğret ve ilmimi artır...”"
+  "kaynak": "B6133 Buhârî, Edeb, 83; M7498 Müslim, Zühd, 63",
+  "giris": "",
+  "metin": "Ebû Hüreyre’den (ra) nakledildiğine göre,\nHz. Peygamber (sav) şöyle buyurmuştur:\n“Mümin, bir delikten iki kere sokulmaz.”"
  },
  "bio": [
   "Aykut Tosun, sanatın inceliğini, ilmin ciddiyetini ve irfanın derinliğini aynı çizgide buluşturan; eğitim, müzik ve tasavvuf alanlarında uzun yıllardır çalışmalarını sürdüren eğitimci, neyzen, müzisyen, araştırmacı ve mutasavvıftır.",
@@ -334,5 +334,5 @@ window.TD = {
   "İnsan öyle yaşamalı ki; attığı her adım, söylediği her söz, aldığı her nefes dua olmalı.",
   "Bazen mahcubiyet mahrumiyetten kurtarır, mahrumiyette mahcubiyetten."
  ],
- "gununSozu": "İnsan öğrendikçe haddini, yaşadıkça acziyetini, tefekkür ettikçe kendisine bahşedilen nimetlerin kıymetini daha iyi kavrar."
+ "gununSozu": "Her şeyin bir vakti, her nasibin bir hikmeti vardır."
 };
